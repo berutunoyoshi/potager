@@ -344,11 +344,12 @@ function restore(t){const o=JSON.parse(t);DB.plants=o.plants;DB.bedTypes=o.bedTy
 function pushUndo(snap){undoS.push(snap||snapshot());if(undoS.length>80)undoS.shift();redoS=[];}
 function undo(){if(!undoS.length)return toast('これ以上戻せません');redoS.push(snapshot());restore(undoS.pop());fixSel();changed();}
 function redo(){if(!redoS.length)return toast('やり直す操作がありません');undoS.push(snapshot());restore(redoS.pop());fixSel();changed();}
-function fixSel(){if(sel&&sel.t==='bed'&&!bedById(sel.id))sel=null;if(sel&&sel.t==='item'&&!itemById(sel.id))sel=null;}
+function fixSel(){msel=new Set([...msel].filter(id=>itemById(id)));if(sel&&sel.t==='bed'&&!bedById(sel.id))sel=null;if(sel&&sel.t==='item'&&!itemById(sel.id))sel=null;}
 function allPlans(){return [...DB.projects,pending].filter(Boolean).flatMap(p=>p.plans);}
 const northOf=()=>cur&&cur.north!=null?cur.north:(S.settings.north||0);
 
 /* ============ 実行時状態 ============ */
+let msel=new Set();
 let tool='select', sel=null, active={pid:null,m:null}, polyPts=[], measure=null, conflicts=new Set(), tab='plants', ui={q:'',cq:'',ccat:'all'};
 const V={s:2.5,ox:60,oy:80};
 const plan=()=>cur?(cur.plans[cur.activePlan]||cur.plans[0]):{name:'',items:[]};
@@ -508,7 +509,7 @@ function drawScene(c,W,H,v,opt){
     const isSel=!opt.export&&sel&&sel.t==='bed'&&sel.id===b.id;
     c.strokeStyle=isSel?C.leaf:C.soilEdge;c.lineWidth=isSel?3.5:2;c.stroke();}
   if(bedMode)c.globalAlpha=.3;
-  for(const it of items()){const p=plantById(it.p);if(!p)continue;const bad=!bedMode&&conflicts.has(it.id),isSel=!opt.export&&sel&&sel.t==='item'&&sel.id===it.id;
+  for(const it of items()){const p=plantById(it.p);if(!p)continue;const bad=!bedMode&&conflicts.has(it.id),isSel=!opt.export&&((sel&&sel.t==='item'&&sel.id===it.id)||msel.has(it.id));
     if(it.k==='r')drawRow(c,v,it,p,bad,isSel);else if(it.k==='a')drawArea(c,v,it,p,bad,isSel);else drawSeedling(c,v,it,p,bad,isSel);}
   c.globalAlpha=1;
   if(S.settings.showLabels&&!noLabels)for(const b of S.beds){
@@ -520,6 +521,7 @@ function drawScene(c,W,H,v,opt){
         pill(c,`${fmt(L)}cm`,mx,my,{color:C.pen,size:11});}}}
   if(!opt.export&&S.settings.showDims&&sel)drawSelDims(c,v);
   if(bedMode&&sel&&sel.t==='bed'&&tool==='select'){const b=bedById(sel.id);if(b)handles(b).forEach(h=>{c.beginPath();c.arc(X(h.x),Y(h.y),h.mid?6:9,0,Math.PI*2);c.fillStyle=h.mid?C.panel:C.leaf;c.fill();c.strokeStyle=C.leaf;c.lineWidth=2;c.stroke();});}
+  if(!opt.export&&wmode==='plant'&&(tool==='select'||tool==='multi')&&sel&&sel.t==='item'){const it=itemById(sel.id);if(it&&it.k!=='s')itemHandles(it).forEach(h=>{c.beginPath();c.arc(X(h.x),Y(h.y),10,0,Math.PI*2);c.fillStyle=C.panel;c.fill();c.strokeStyle=C.pen;c.lineWidth=3;c.stroke();});}
   if(!opt.export)drawPreview(c,v);
   if(!opt.thumb){drawScale(c,W,H,s,opt);drawCompass(c,W,opt);}
 }
@@ -573,7 +575,19 @@ function drawPreview(c,v){
     dimsFrom(A.a);}}
   if(A.kind==='moveItem'&&!A.valid&&A.msg){const it=A.it;const q=it.k==='s'?[it.x,it.y]:[it.x1,it.y1];pill(c,A.msg,X(q[0]),Y(q[1])-28,{color:C.danger,bold:true});}
   if(A.kind==='measure')drawMeasure(c,v,{a:A.a,b:A.b});
+  if(A.kind==='lasso'){const x1=Math.min(A.a[0],A.b[0]),y1=Math.min(A.a[1],A.b[1]),w=Math.abs(A.b[0]-A.a[0]),h=Math.abs(A.b[1]-A.a[1]);c.fillStyle=hexA('#2f5fb3',.08);c.fillRect(X(x1),Y(y1),w*s,h*s);c.strokeStyle=C.pen;c.lineWidth=1.5;c.setLineDash([6,4]);c.strokeRect(X(x1),Y(y1),w*s,h*s);c.setLineDash([]);}
+  if(A.kind==='rowEnd'){const it=A.it,p=plantById(it.p);const L=rowLen(it);const q=A.end===1?[it.x1,it.y1]:[it.x2,it.y2];
+    pill(c,A.valid?`${fmt(L)}cm・${Math.floor(L/p.seedSp+1e-6)+1}株`:(A.msg||''),X(q[0]),Y(q[1])-26,{color:A.valid?C.pen:C.danger,bold:true});}
+  if(A.kind==='areaCorner'){const it=A.it,p=plantById(it.p);const a=areaStats(it,p);pill(c,A.valid?`${fmt(a.w)}×${fmt(a.h)}cm・${fmt(a.m2)}㎡`:(A.msg||''),X((it.x1+it.x2)/2),Y(Math.min(it.y1,it.y2))-16,{color:A.valid?C.pen:C.danger,bold:true});}
+  if(A.kind==='moveGroup'&&!A.valid&&A.msg){const it=itemById([...msel][0]);if(it){const q=it.k==='s'?[it.x,it.y]:[it.x1,it.y1];pill(c,A.msg,X(q[0]),Y(q[1])-28,{color:C.danger,bold:true});}}
 }
+function itemHandles(it){if(it.k==='r')return [{x:it.x1,y:it.y1,end:1},{x:it.x2,y:it.y2,end:2}];
+  if(it.k==='a'){const x1=Math.min(it.x1,it.x2),y1=Math.min(it.y1,it.y2),x2=Math.max(it.x1,it.x2),y2=Math.max(it.y1,it.y2);return [{x:x1,y:y1,c:[x2,y2]},{x:x2,y:y1,c:[x1,y2]},{x:x2,y:y2,c:[x1,y1]},{x:x1,y:y2,c:[x2,y1]}];}return [];}
+function hitItemHandle(it,sp){let best=null,bd=24;for(const h of itemHandles(it)){const d=Math.hypot(h.x*V.s+V.ox-sp.x,h.y*V.s+V.oy-sp.y);if(d<bd){bd=d;best=h;}}return best;}
+function groupObs(){return items().filter(i=>!msel.has(i.id)).map(shapeOf).filter(Boolean);}
+function groupCheck(){const obs=groupObs();for(const id of msel){const it=itemById(id);if(!it)continue;const r=checkItem(it,obs);if(!r.ok){const p=plantById(it.p);return {ok:false,msg:`${p?p.name+'：':''}${r.msg}`};}}return {ok:true};}
+function itemsInBox(x1,y1,x2,y2){return items().filter(it=>{const p=plantById(it.p);if(!p)return false;const b=itemBox(it,p);return b.maxX>=x1&&b.minX<=x2&&b.maxY>=y1&&b.minY<=y2;});}
+function moveItemBy(it,o,dx,dy){if(it.k==='s'){it.x=o.x+dx;it.y=o.y+dy;}else{it.x1=o.x1+dx;it.y1=o.y1+dy;it.x2=o.x2+dx;it.y2=o.y2+dy;}}
 const COMPASS={dx:44,y:86};
 function drawCompass(c,W,opt){const x=W-COMPASS.dx,y=opt.export?44:COMPASS.y;const n=northOf();
   c.save();c.translate(x,y);c.fillStyle=colors.panel;c.globalAlpha=.9;c.beginPath();c.arc(0,0,30,0,Math.PI*2);c.fill();c.globalAlpha=1;c.strokeStyle=colors.line;c.lineWidth=1;c.stroke();
@@ -662,6 +676,8 @@ function needPlant(m){const p=plantById(active.pid);if(!p||active.m!==m){toast(m
 const activeIsBroadcast=()=>{const p=plantById(active.pid);return !!(p&&active.m==='r'&&p.sow==='ばらまき');};
 function bedMoveAction(base,b,w){const inBed=[];cur.plans.forEach(pl=>pl.items.forEach(i=>{if(itemBed(i)===b)inBed.push({i,o:{...i}});}));
   return {...base,kind:'moveBed',bed:b,pts0:b.pts.map(p=>[...p]),c0:b.c?{...b.c}:null,inBed,w0:w,snap:snapshot()};}
+function groupAction(base,w,toggleOff){const origs=new Map();for(const id of msel){const it=itemById(id);if(it)origs.set(id,{...it});}
+  return {...base,kind:'moveGroup',origs,w0:w,valid:true,snap:snapshot(),toggleOff,tapId:null};}
 function areaCheck(a,b){const x1=Math.min(a[0],b[0]),y1=Math.min(a[1],b[1]),x2=Math.max(a[0],b[0]),y2=Math.max(a[1],b[1]);
   if(x2-x1<5||y2-y1<5)return {ok:false,msg:'5cm以上の範囲をドラッグしてください'};return checkShape({k:'a',x1,y1,x2,y2,r:0},obstacles());}
 function startAction(sp){
@@ -674,8 +690,15 @@ function startAction(sp){
         if(sb){const h=hitHandle(sb,sp);if(h){action={...base,kind:'vertex',bed:sb,h,snap:snapshot()};return;}}
         const b=hitBed(w);if(b){select({t:'bed',id:b.id});action=bedMoveAction(base,b,w);return;}
         action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:null};return;}
-      const it=hitItem(w);if(it){select({t:'item',id:it.id});action={...base,kind:'moveItem',it,orig:{...it},w0:w,valid:true,snap:snapshot()};return;}
-      const b=hitBed(w);action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:b?{t:'bed',id:b.id}:null};return;}
+      if(sel&&sel.t==='item'){const si=itemById(sel.id);const h=si&&hitItemHandle(si,sp);
+        if(h){action={...base,kind:si.k==='r'?'rowEnd':'areaCorner',it:si,end:h.end,fix:h.c,orig:{...si},valid:true,snap:snapshot()};return;}}
+      const it=hitItem(w);
+      if(it&&msel.has(it.id)){action=groupAction(base,w,false);return;}
+      if(it){msel.clear();select({t:'item',id:it.id});action={...base,kind:'moveItem',it,orig:{...it},w0:w,valid:true,snap:snapshot()};return;}
+      const b=hitBed(w);if(msel.size){msel.clear();refreshPanel();}action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:b?{t:'bed',id:b.id}:null};return;}
+    case 'multi':{const it=hitItem(w);
+      if(it){const had=msel.has(it.id);if(!had){msel.add(it.id);sel=null;refreshPanel();}action=groupAction(base,w,had);render();return;}
+      action={...base,kind:'lasso',a:[w.x,w.y],b:[w.x,w.y]};return;}
     case 'rect':case 'circle':{const q=snapP(w);action={...base,kind:tool,a:q,b:q};render();return;}
     case 'poly':{action={...base,kind:'poly',p:snapP(w)};render();return;}
     case 'seedling':{const p=needPlant('s');if(!p)return;const q=snapP(w);const r=checkCircle(q[0],q[1],p.seedlingSp/2,obstacles());action={...base,kind:'seed',p:q,ok:r.ok,msg:r.msg};render();return;}
@@ -694,6 +717,16 @@ function moveAction(sp){
     case 'moveItem':{if(!A.moved)return;const it=A.it,o=A.orig,dx=w.x-A.w0.x,dy=w.y-A.w0.y;
       if(it.k==='s'){it.x=snapV(o.x+dx);it.y=snapV(o.y+dy);}else{const nx=snapV(o.x1+dx)-o.x1,ny=snapV(o.y1+dy)-o.y1;it.x1=o.x1+nx;it.y1=o.y1+ny;it.x2=o.x2+nx;it.y2=o.y2+ny;}
       const r=checkItem(it,obstacles(it.id));A.valid=r.ok;A.msg=r.msg;A.dirty=true;computeConflicts();break;}
+    case 'moveGroup':{if(!A.moved)return;const dx=snapV(w.x-A.w0.x),dy=snapV(w.y-A.w0.y);A.origs.forEach((o,id)=>{const it=itemById(id);if(it)moveItemBy(it,o,dx,dy);});
+      const r=groupCheck();A.valid=r.ok;A.msg=r.msg;A.dirty=true;computeConflicts();break;}
+    case 'rowEnd':{const it=A.it,o=A.orig,p=plantById(it.p);const f=A.end===1?[o.x2,o.y2]:[o.x1,o.y1];let dx=w.x-f[0],dy=w.y-f[1];let L=Math.hypot(dx,dy),ang=Math.atan2(dy,dx);
+      if(S.settings.angleSnap){const st=Math.PI/4,sn=Math.round(ang/st)*st;if(Math.abs(sn-ang)<0.12)ang=sn;}
+      L=Math.max(S.settings.snap>0?Math.round(L/S.settings.snap)*S.settings.snap:L,1);const q=[f[0]+Math.cos(ang)*L,f[1]+Math.sin(ang)*L].map(v=>Math.round(v*10)/10);
+      if(A.end===1){it.x1=q[0];it.y1=q[1];}else{it.x2=q[0];it.y2=q[1];}
+      const r=checkItem(it,obstacles(it.id));A.valid=r.ok&&L>=5;A.msg=L<5?'5cm以上必要です':r.msg;A.dirty=true;computeConflicts();break;}
+    case 'areaCorner':{const it=A.it,q=snapP(w);it.x1=Math.min(A.fix[0],q[0]);it.y1=Math.min(A.fix[1],q[1]);it.x2=Math.max(A.fix[0],q[0]);it.y2=Math.max(A.fix[1],q[1]);
+      const small=it.x2-it.x1<5||it.y2-it.y1<5;const r=checkItem(it,obstacles(it.id));A.valid=!small&&r.ok;A.msg=small?'5cm以上必要です':r.msg;A.dirty=true;computeConflicts();break;}
+    case 'lasso':A.b=[w.x,w.y];A.dirty=false;break;
     case 'moveBed':{if(!A.moved)return;const dx=snapV(w.x-A.w0.x),dy=snapV(w.y-A.w0.y);A.bed.pts=A.pts0.map(p=>[p[0]+dx,p[1]+dy]);if(A.c0)A.bed.c={x:A.c0.x+dx,y:A.c0.y+dy,r:A.c0.r};
       A.inBed.forEach(({i,o})=>{if(i.k==='s'){i.x=o.x+dx;i.y=o.y+dy;}else{i.x1=o.x1+dx;i.y1=o.y1+dy;i.x2=o.x2+dx;i.y2=o.y2+dy;}});A.dirty=true;break;}
     case 'vertex':{const b=A.bed,q=snapP(w);A.dirty=true;
@@ -719,19 +752,28 @@ function endAction(sp,cancelled){
   switch(A.kind){
     case 'compass':openNorth();break;
     case 'pan':if(!A.moved)select(A.tapSel||null);break;
-    case 'moveItem':if(A.moved){if(!A.valid){restore(A.snap);toast(A.msg||'ここには置けません');}else{pushUndo(A.snap);}changed();}break;
+    case 'moveItem':if(A.moved){if(!A.valid){askOverlap(A.msg,()=>{pushUndo(A.snap);changed();},()=>{restore(A.snap);changed();});}else{pushUndo(A.snap);changed();}}break;
+    case 'moveGroup':if(A.moved){if(!A.valid){askOverlap(A.msg,()=>{pushUndo(A.snap);changed();},()=>{restore(A.snap);changed();});}else{pushUndo(A.snap);changed();}}
+      else if(A.toggleOff){const it=hitItem(w);if(it){msel.delete(it.id);refreshPanel();}}break;
+    case 'rowEnd':case 'areaCorner':if(A.dirty){if(!A.valid){if(/5cm/.test(A.msg||'')){restore(A.snap);toast(A.msg);changed();}else askOverlap(A.msg,()=>{pushUndo(A.snap);changed();},()=>{restore(A.snap);changed();});}else{pushUndo(A.snap);changed();}}break;
+    case 'lasso':{if(!A.moved){if(msel.size){msel.clear();refreshPanel();}break;}const f=itemsInBox(Math.min(A.a[0],A.b[0]),Math.min(A.a[1],A.b[1]),Math.max(A.a[0],A.b[0]),Math.max(A.a[1],A.b[1]));
+      f.forEach(i=>msel.add(i.id));sel=null;if(msel.size&&!$('#panel').classList.contains('hidden'))tab='sel';refreshPanel();toast(`${msel.size}件を選択中。選んだものをドラッグするとまとめて移動します`);break;}
     case 'moveBed':if(A.moved){pushUndo(A.snap);changed();}break;
     case 'vertex':if(A.dirty){if(Math.abs(sArea(A.bed.pts))<50){restore(A.snap);toast('花壇が小さすぎます');}else pushUndo(A.snap);changed();}break;
     case 'rect':{const P=rectPts(A.a[0],A.a[1],A.b[0],A.b[1]);const bb=bbox(P);if(bb.w<10||bb.h<10){toast('10cm以上の大きさでドラッグしてください');break;}addSessionBed('rect',P,null);break;}
     case 'circle':{const r=Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1]);if(r<5){toast('中心から外側へドラッグしてください');break;}addSessionBed('circle',circPts(A.a[0],A.a[1],r),{x:A.a[0],y:A.a[1],r});break;}
     case 'poly':{const q=A.p;if(polyPts.length>=3){const f=polyPts[0];if(Math.hypot((f[0]-q[0])*V.s,(f[1]-q[1])*V.s)<24){finishPoly();break;}}
       const l=polyPts[polyPts.length-1];if(!l||l[0]!==q[0]||l[1]!==q[1])polyPts.push(q);updateHint();break;}
-    case 'seed':{const p=plantById(active.pid);if(!A.ok){toast(A.msg||'ここには置けません');break;}pushUndo();items().push({id:uid(),k:'s',p:p.id,x:A.p[0],y:A.p[1]});seasonWarn(p,'s');changed();break;}
-    case 'area':{const p=plantById(active.pid);if(!A.moved){toast('ドラッグでばらまく範囲を指定してください');break;}if(!A.ok){toast(A.msg||'ここには指定できません');break;}
-      pushUndo();items().push({id:uid(),k:'a',p:p.id,x1:Math.min(A.a[0],A.b[0]),y1:Math.min(A.a[1],A.b[1]),x2:Math.max(A.a[0],A.b[0]),y2:Math.max(A.a[1],A.b[1])});seasonWarn(p,'r');changed();break;}
-    case 'row':{const p=plantById(active.pid);if(!A.fit||!A.fit.ok){toast(A.moved?((A.fit&&A.fit.msg)||'ここには引けません'):'ドラッグして条（すじ）を引いてください');break;}
-      const e=A.fit.b;if(Math.hypot(e[0]-A.a[0],e[1]-A.a[1])<5){toast('5cm以上の長さが必要です');break;}
-      pushUndo();items().push({id:uid(),k:'r',p:p.id,x1:A.a[0],y1:A.a[1],x2:Math.round(e[0]*10)/10,y2:Math.round(e[1]*10)/10});seasonWarn(p,'r');changed();break;}
+    case 'seed':{const p=plantById(active.pid);const put=()=>{pushUndo();items().push({id:uid(),k:'s',p:p.id,x:A.p[0],y:A.p[1]});seasonWarn(p,'s');changed();};
+      if(!A.ok)askOverlap(A.msg,put,()=>render());else put();break;}
+    case 'area':{const p=plantById(active.pid);if(!A.moved){toast('ドラッグでばらまく範囲を指定してください');break;}const put=()=>{pushUndo();items().push({id:uid(),k:'a',p:p.id,x1:Math.min(A.a[0],A.b[0]),y1:Math.min(A.a[1],A.b[1]),x2:Math.max(A.a[0],A.b[0]),y2:Math.max(A.a[1],A.b[1])});seasonWarn(p,'r');changed();};
+      if(!A.ok){if(/5cm/.test(A.msg||'')){toast(A.msg);break;}askOverlap(A.msg,put,()=>render());}else put();break;}
+    case 'row':{const p=plantById(active.pid);if(!A.moved||!A.fit){toast('ドラッグして条（すじ）を引いてください');break;}
+      if(Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1])<5){toast('5cm以上の長さが必要です');break;}
+      const put=e=>{pushUndo();items().push({id:uid(),k:'r',p:p.id,x1:A.a[0],y1:A.a[1],x2:Math.round(e[0]*10)/10,y2:Math.round(e[1]*10)/10});seasonWarn(p,'r');changed();};
+      if(A.fit.ok&&!A.fit.trim){put(A.fit.b);break;}
+      const canTrim=A.fit.ok&&A.fit.trim&&Math.hypot(A.fit.b[0]-A.a[0],A.fit.b[1]-A.a[1])>=5;
+      askOverlap(A.fit.msg,()=>put(A.b),()=>render(),canTrim?{label:`短くして配置（${fmt(Math.hypot(A.fit.b[0]-A.a[0],A.fit.b[1]-A.a[1]))}cm）`,fn:()=>put(A.fit.b)}:null);break;}
     case 'measure':measure={a:A.a,b:A.b};break;
     case 'tap':{if(A.moved)break;
       if(tool==='fill'){const b=hitBed(w);if(!b){toast('花壇をタップしてください');break;}autoFill(b);}
@@ -790,18 +832,25 @@ function autoFill(b){
 /* ============ UI 共通 ============ */
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
 function openModal(title,body,foot){$('#mt').textContent=title;$('#mb').innerHTML=body;$('#mb').onclick=null;$('#mf').innerHTML=foot||'';$('#modal').classList.add('show');}
-function closeModal(){$('#modal').classList.remove('show');$('#mb').innerHTML='';}
+let modalCancel=null;
+function closeModal(){$('#modal').classList.remove('show');$('#mb').innerHTML='';const f=modalCancel;modalCancel=null;if(f)f();}
+/* 重なり・はみ出しの確認（毎回確認する） */
+function askOverlap(msg,onYes,onNo,alt){modalCancel=onNo||null;
+  openModal('配置の確認',`<p class="bad"><b>⚠ ${esc(msg||'間隔が重なっています')}</b></p><p>このまま配置しますか？「はい」を押すと、重なりやはみ出しがあってもこの位置に配置します（図では赤い破線で表示されます）。</p>`,
+  `<button class="btn" data-close>いいえ（やめる）</button>${alt?`<button class="btn" id="ovAlt">${esc(alt.label)}</button>`:''}<button class="btn dan" id="ovYes">はい、配置する</button>`);
+  $('#ovYes').onclick=()=>{modalCancel=null;closeModal();onYes();};
+  if(alt)$('#ovAlt').onclick=()=>{modalCancel=null;closeModal();alt.fn();};}
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'||e.target.closest('[data-close]'))closeModal();});
 let confirmCb=null;
 function askConfirm(msg,cb,yes){confirmCb=cb;openModal('確認',`<p>${esc(msg)}</p>`,`<button class="btn" data-close>やめる</button><button class="btn dan" id="cfYes">${yes||'実行する'}</button>`);$('#cfYes').onclick=()=>{closeModal();const f=confirmCb;confirmCb=null;f&&f();};}
 function promptText(title,label,val,cb){openModal(title,`<div class="fld"><label>${esc(label)}</label><input class="inp" id="ptI" value="${esc(val)}"></div>`,`<button class="btn" data-close>やめる</button><button class="btn pri" id="ptOk">決定</button>`);
   const i=$('#ptI');setTimeout(()=>i.focus(),50);$('#ptOk').onclick=()=>{const v=i.value.trim();if(!v)return toast('入力してください');closeModal();cb(v);};}
-function select(s){sel=s;if(s&&!$('#panel').classList.contains('hidden')&&(tab==='plants'||tab==='disp'))tab='sel';refreshPanel();render();}
+function select(s){sel=s;if(s)msel.clear();if(s&&!$('#panel').classList.contains('hidden')&&(tab==='plants'||tab==='disp'))tab='sel';refreshPanel();render();}
 function changed(){if(cur){cur.updated=Date.now();computeConflicts();}save();if(screen==='work'){render();refreshPanel();updateChip();}else if(screen==='page'&&pageRefresh)pageRefresh();}
 function openPanel(t){$('#panel').classList.remove('hidden');tab=t;refreshPanel();resize();}
-function setTool(t){tool=t;if(t!=='poly')polyPts=[];if(t!=='measure')measure=null;$$('#tb [data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));updateHint();render();}
-const HINTS={plant:{select:'植物をタップで選択・ドラッグで移動。空き地をドラッグで画面移動、2本指でズーム（花壇は「花壇編集」で動かせます）',seedling:'押して位置を決め、離すと苗を置く。円＝株間の範囲',row:'ドラッグで播種の条を引く。帯の幅＝条間',
-  area:'ドラッグでばらまく範囲（長方形）を指定。面積から種の量を計算します',fill:'花壇をタップ → 選択中の植物を空きに自動配置',measure:'ドラッグで距離を測る',erase:'植物をタップで削除'},
+function setTool(t){tool=t;if(t!=='select'&&t!=='multi'&&msel.size){msel.clear();refreshPanel();}if(t!=='poly')polyPts=[];if(t!=='measure')measure=null;$$('#tb [data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));updateHint();render();}
+const HINTS={plant:{select:'植物をタップで選択・ドラッグで移動。選んだ条・ばらまきは端の○をドラッグで長さや大きさを変更。2本指でズーム（花壇は「花壇編集」で動かせます）',seedling:'押して位置を決め、離すと苗を置く。円＝株間の範囲',row:'ドラッグで播種の条を引く。帯の幅＝条間',
+  area:'ドラッグでばらまく範囲（長方形）を指定。面積から種の量を計算します',fill:'花壇をタップ → 選択中の植物を空きに自動配置',multi:'ドラッグで囲んでまとめて選択、タップで追加・解除。選んだものをドラッグでまとめて移動',measure:'ドラッグで距離を測る',erase:'植物をタップで削除'},
   bed:{select:'花壇をタップで選択・ドラッグで移動。選んだ花壇の頂点●で変形、辺の中点○で頂点を追加',rect:'ドラッグで四角い花壇を追加',circle:'中心から外へドラッグで円形花壇を追加',
   poly:'タップで頂点を追加（押したまま位置調整）。最初の点をタップで完成',measure:'ドラッグで距離を測る（花壇どうしの通路幅など）'},
   view:{select:'確認モード：タップで詳細を表示、ドラッグで画面移動、2本指でズーム'}};
@@ -822,7 +871,7 @@ const cmd=(c,ic,l,cls='')=>`<button class="tbtn ${cls}" data-cmd="${c}"><span cl
 const SEP='<div class="sep"></div>';
 function renderToolbar(){let h='';
   const sels=`<select class="tsel" id="month" aria-label="作付け月">${monthOpts(S.settings.month)}</select><select class="tsel" id="plan" aria-label="プラン">${cur.plans.map((p,i)=>`<option value="${i}" ${i===cur.activePlan?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`;
-  if(wmode==='plant')h=cmd('home','⌂','ホーム')+`<button class="ttl" data-cmd="rename" title="名前を変更">${esc(cur.name)} ✎</button>`+SEP+tb('select','✋','選択')+tb('seedling','●','苗')+tb('row','━','播種')+tb('fill','✦','自動配置')+SEP+
+  if(wmode==='plant')h=cmd('home','⌂','ホーム')+`<button class="ttl" data-cmd="rename" title="名前を変更">${esc(cur.name)} ✎</button>`+SEP+tb('select','✋','選択')+tb('multi','⬚','まとめて選択')+tb('seedling','●','苗')+tb('row','━','播種')+tb('fill','✦','自動配置')+SEP+
     tb('measure','📏','計測')+tb('erase','⌫','削除')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+SEP+cmd('bedEdit','▭','花壇編集')+cmd('addBed','＋','花壇追加')+cmd('north','🧭','方位')+SEP+sels+cmd('panel','☰','パネル');
   if(wmode==='bed')h=cmd('bedBack','←','戻る')+`<span class="ttl">花壇の配置・形</span>`+SEP+tb('select','✋','選択・移動')+tb('rect','▭','四角')+tb('circle','◯','円')+tb('poly','⬠','多角形')+SEP+
     tb('measure','📏','計測')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+cmd('north','🧭','方位')+cmd('panel','☰','パネル')+SEP+cmd('bedOk','→','決定','go');
@@ -830,7 +879,7 @@ function renderToolbar(){let h='';
   $('#tb').innerHTML=h;
   const m=$('#month'),pl=$('#plan');
   if(m)m.onchange=e=>{S.settings.month=+e.target.value;save();refreshPanel();};
-  if(pl)pl.onchange=e=>{cur.activePlan=+e.target.value;sel=null;changed();};
+  if(pl)pl.onchange=e=>{cur.activePlan=+e.target.value;sel=null;msel.clear();changed();};
   $$('#tb [data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===tool));}
 $('#tb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.tool)return setTool(b.dataset.tool);
@@ -963,7 +1012,7 @@ function jsonBedModal(ctx){openModal('座標データから花壇を登録',`<p 
     save();closeModal();showBedPick(ctx);toast(`${beds.length}個の花壇を登録しました`);};}
 
 /* ============ 作業画面 ============ */
-function openWork(mode,opts={}){wmode=mode;showScreen('work');undoS=[];redoS=[];sel=null;measure=null;polyPts=[];action=null;
+function openWork(mode,opts={}){wmode=mode;msel=new Set();showScreen('work');undoS=[];redoS=[];sel=null;measure=null;polyPts=[];action=null;
   if(mode==='bed'){bs={from:opts.from||'edit',snap:opts.snap||snapshot(),created:opts.created||[]};if(opts.selId)sel={t:'bed',id:opts.selId};tool=S.beds.length?'select':'rect';tab='bed';}
   else{bs=null;tool='select';tab=mode==='view'?'sum':'plants';}
   if(innerWidth>760)$('#panel').classList.remove('hidden');
@@ -1010,6 +1059,12 @@ const rowInfo=(l,v)=>`<div class="row between"><span>${l}</span><b>${v}</b></div
 function matLines(p,n){const M=p.mat,a=[];if(M.pole.on){const per=M.pole.per||STYLE_PER[M.pole.style];a.push(rowInfo(`支柱（${M.pole.style}）`,`${M.pole.len}cm φ${M.pole.dia}mm × ${M.pole.style==='ピラミッド型'?Math.max(4,Math.ceil(n/4)*4):n*per}本`));}
   if(M.net.on)a.push(rowInfo('ネット',`幅${M.net.w}cm・網目${M.net.mesh}cm`));return a.join('');}
 function tabSel(){
+  if(msel.size){const list=[...msel].map(itemById).filter(Boolean);const t=tally(list);
+    return `<h3>${list.length}件を選択中</h3><table>${t.map(x=>`<tr><td><span class="dot" style="display:inline-block;background:${x.p.color};vertical-align:-2px"></span> ${esc(x.p.name)}</td><td class="n">${x.sd?x.sd+'株':''}${x.rows?` ${x.rows}条`:''}${x.areas?` ${fmt(x.m2)}㎡`:''}</td></tr>`).join('')}</table>
+    <p class="muted">選んだものをドラッグするとまとめて移動します。数値でも動かせます。</p>
+    <div class="grid2"><div class="fld"><label>右へ cm（左はマイナス）</label><input class="inp" id="gDx" type="number" inputmode="decimal" value="0"></div><div class="fld"><label>下へ cm（上はマイナス）</label><input class="inp" id="gDy" type="number" inputmode="decimal" value="0"></div></div>
+    <button class="btn pri full" data-act="gMove">この距離だけまとめて移動</button>
+    <div class="grid2" style="margin-top:10px"><button class="btn" data-act="gAll">この花壇の植物をすべて選択</button><button class="btn" data-act="gClear">選択を解除</button><button class="btn dan" data-act="gDel">選択したものを削除</button></div>`;}
   if(!sel)return `<p class="muted">図面の植物や花壇をタップすると、寸法や数量が表示されます。</p>${wmode==='plant'?'<p class="muted">花壇の位置や形を変えるときはツールバーの「花壇編集」、増やすときは「＋花壇追加」から。</p>':''}`;
   if(sel.t==='bed'){const b=bedById(sel.id);if(!b)return '';const bb=bbox(b.pts),A=bedArea(b);const cnt=tally(items().filter(i=>itemBed(i)===b));
     return `<h3>花壇 ${esc(b.name)}</h3>
@@ -1089,8 +1144,8 @@ pbody.addEventListener('change',e=>{const t=e.target;if(wmode==='view')return;
     if(k==='len'){const L=rowLen(it)||1;c.x2=it.x1+(it.x2-it.x1)/L*v;c.y2=it.y1+(it.y2-it.y1)/L*v;}
     if(k==='ax'||k==='ay'||k==='aw'||k==='ah'){const x1=Math.min(it.x1,it.x2),y1=Math.min(it.y1,it.y2),w=Math.abs(it.x2-it.x1),h=Math.abs(it.y2-it.y1);
       const nx=k==='ax'?o.x+v:x1,ny=k==='ay'?o.y+v:y1,nw=k==='aw'?v:w,nh=k==='ah'?v:h;if(nw<5||nh<5){toast('5cm以上にしてください');return refreshPanel();}c.x1=nx;c.y1=ny;c.x2=nx+nw;c.y2=ny+nh;}
-    const r=checkItem(c,obstacles(it.id));if(!r.ok){toast(r.msg||'その位置には置けません');refreshPanel();return;}
-    pushUndo(snap);Object.assign(it,c);changed();}
+    const r=checkItem(c,obstacles(it.id));const apply=()=>{pushUndo(snap);Object.assign(it,c);changed();};
+    if(!r.ok)askOverlap(r.msg,apply,()=>refreshPanel());else apply();}
 });
 pbody.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||wmode==='view')return;const a=b.dataset.act;
   if(a==='pick'){const p=plantById(b.dataset.id);active={pid:p.id,m:b.dataset.m};setTool(b.dataset.m==='s'?'seedling':'row');refreshPanel();if(innerWidth<=760){$('#panel').classList.add('hidden');resize();}return;}
@@ -1110,6 +1165,12 @@ pbody.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b|
   if(a==='clearBed'){const bd=bedById(sel.id);askConfirm(`${bd.name}の植物（${plan().name}）をすべて外しますか？`,()=>{pushUndo();plan().items=items().filter(i=>itemBed(i)!==bd);changed();});return;}
   if(a==='delItem'){pushUndo();plan().items=items().filter(i=>i.id!==sel.id);sel=null;changed();return;}
   if(a==='dupItem')return dupItem();
+  if(a==='gClear'){msel.clear();refreshPanel();render();return;}
+  if(a==='gDel'){const n=msel.size;askConfirm(`選択した${n}件を削除しますか？`,()=>{pushUndo();plan().items=items().filter(i=>!msel.has(i.id));msel.clear();changed();toast(`${n}件を削除しました（戻すで取り消し）`);},'削除する');return;}
+  if(a==='gAll'){const f=[...msel].map(itemById).find(Boolean);const bd=f&&itemBed(f);if(!bd)return toast('花壇の中の植物を1つ以上選んでください');items().filter(i=>itemBed(i)===bd).forEach(i=>msel.add(i.id));refreshPanel();render();return;}
+  if(a==='gMove'){const dx=parseFloat($('#gDx').value)||0,dy=parseFloat($('#gDy').value)||0;if(!dx&&!dy)return toast('移動する距離を入力してください');const snap=snapshot();
+    [...msel].forEach(id=>{const it=itemById(id);if(it)moveItemBy(it,{...it},dx,dy);});const r=groupCheck();computeConflicts();render();
+    const ok=()=>{pushUndo(snap);changed();toast(`${msel.size}件を移動しました`);};if(!r.ok)askOverlap(r.msg,ok,()=>{restore(snap);changed();});else ok();return;}
   if(a==='addPlan'){pushUndo();cur.plans.push({id:uid(),name:`プラン${cur.plans.length+1}`,items:[]});cur.activePlan=cur.plans.length-1;changed();renderToolbar();return;}
   if(a==='dupPlan'){const i=+b.dataset.i;pushUndo();const np=JSON.parse(JSON.stringify(cur.plans[i]));np.id=uid();np.name+='（複製）';np.items.forEach(x=>x.id=uid());cur.plans.splice(i+1,0,np);cur.activePlan=i+1;changed();renderToolbar();return;}
   if(a==='delPlan'){const i=+b.dataset.i;askConfirm(`「${cur.plans[i].name}」を削除しますか？`,()=>{pushUndo();cur.plans.splice(i,1);cur.activePlan=0;sel=null;changed();renderToolbar();});return;}
