@@ -344,13 +344,13 @@ function restore(t){const o=JSON.parse(t);DB.plants=o.plants;DB.bedTypes=o.bedTy
 function pushUndo(snap){undoS.push(snap||snapshot());if(undoS.length>80)undoS.shift();redoS=[];}
 function undo(){if(!undoS.length)return toast('これ以上戻せません');redoS.push(snapshot());restore(undoS.pop());fixSel();changed();}
 function redo(){if(!redoS.length)return toast('やり直す操作がありません');undoS.push(snapshot());restore(redoS.pop());fixSel();changed();}
-function fixSel(){msel=new Set([...msel].filter(id=>itemById(id)));if(sel&&sel.t==='bed'&&!bedById(sel.id))sel=null;if(sel&&sel.t==='item'&&!itemById(sel.id))sel=null;}
+function fixSel(){if(sel&&sel.t==='dim'&&!planDims().some(d=>d.id===sel.id))sel=null;msel=new Set([...msel].filter(id=>itemById(id)));if(sel&&sel.t==='bed'&&!bedById(sel.id))sel=null;if(sel&&sel.t==='item'&&!itemById(sel.id))sel=null;}
 function allPlans(){return [...DB.projects,pending].filter(Boolean).flatMap(p=>p.plans);}
 const northOf=()=>cur&&cur.north!=null?cur.north:(S.settings.north||0);
 
 /* ============ 実行時状態 ============ */
 let msel=new Set();
-let tool='select', sel=null, active={pid:null,m:null}, polyPts=[], measure=null, conflicts=new Set(), tab='plants', ui={q:'',cq:'',ccat:'all'};
+let tool='select', sel=null, active={pid:null,m:null}, polyPts=[], measures=[], conflicts=new Set(), tab='plants', ui={q:'',cq:'',ccat:'all'};
 const V={s:2.5,ox:60,oy:80};
 const plan=()=>cur?(cur.plans[cur.activePlan]||cur.plans[0]):{name:'',items:[]};
 const items=()=>plan().items;
@@ -522,6 +522,7 @@ function drawScene(c,W,H,v,opt){
   if(!opt.export&&S.settings.showDims&&sel)drawSelDims(c,v);
   if(bedMode&&sel&&sel.t==='bed'&&tool==='select'){const b=bedById(sel.id);if(b)handles(b).forEach(h=>{c.beginPath();c.arc(X(h.x),Y(h.y),h.mid?6:9,0,Math.PI*2);c.fillStyle=h.mid?C.panel:C.leaf;c.fill();c.strokeStyle=C.leaf;c.lineWidth=2;c.stroke();});}
   if(!opt.export&&wmode==='plant'&&(tool==='select'||tool==='multi')&&sel&&sel.t==='item'){const it=itemById(sel.id);if(it&&it.k!=='s')itemHandles(it).forEach(h=>{c.beginPath();c.arc(X(h.x),Y(h.y),10,0,Math.PI*2);c.fillStyle=C.panel;c.fill();c.strokeStyle=C.pen;c.lineWidth=3;c.stroke();});}
+  if(!opt.export&&!opt.thumb&&(wmode==='dims'||wmode==='view'))drawDims(c,v);
   if(!opt.export)drawPreview(c,v);
   if(!opt.thumb){drawScale(c,W,H,s,opt);drawCompass(c,W,opt);}
 }
@@ -551,7 +552,9 @@ function drawPreview(c,v){
     if(action&&action.kind==='poly')c.lineTo(X(action.p[0]),Y(action.p[1]));c.stroke();c.setLineDash([]);
     polyPts.forEach((p,i)=>{c.beginPath();c.arc(X(p[0]),Y(p[1]),i?5:9,0,Math.PI*2);c.fillStyle=i?C.leaf:C.panel;c.fill();c.strokeStyle=C.leaf;c.stroke();});
     for(let i=1;i<polyPts.length;i++){const a=polyPts[i-1],b=polyPts[i];pill(c,`${fmt(Math.hypot(b[0]-a[0],b[1]-a[1]))}cm`,X((a[0]+b[0])/2),Y((a[1]+b[1])/2)-12,{color:C.pen,size:11});}}
-  if(!action){if(measure)drawMeasure(c,v,measure);return;}
+  measures.forEach(m=>drawMeasure(c,v,m));
+  if(action&&(action.kind==='measure'||action.kind==='dim')&&snapHint){c.beginPath();c.arc(X(snapHint[0]),Y(snapHint[1]),9,0,Math.PI*2);c.strokeStyle=C.pen;c.lineWidth=2;c.stroke();}
+  if(!action)return;
   const A=action;
   if(A.kind==='poly'){pill(c,`(${fmt(A.p[0])}, ${fmt(A.p[1])})`,X(A.p[0]),Y(A.p[1])-22,{color:C.pen,size:11});}
   if(A.kind==='rect'){const P=rectPts(A.a[0],A.a[1],A.b[0],A.b[1]);const bb=bbox(P);c.fillStyle=hexA('#d8c29c',.5);c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.beginPath();c.rect(X(bb.minX),Y(bb.minY),bb.w*s,bb.h*s);c.fill();c.stroke();c.setLineDash([]);
@@ -575,6 +578,7 @@ function drawPreview(c,v){
     dimsFrom(A.a);}}
   if(A.kind==='moveItem'&&!A.valid&&A.msg){const it=A.it;const q=it.k==='s'?[it.x,it.y]:[it.x1,it.y1];pill(c,A.msg,X(q[0]),Y(q[1])-28,{color:C.danger,bold:true});}
   if(A.kind==='measure')drawMeasure(c,v,{a:A.a,b:A.b});
+  if(A.kind==='dim'){drawDim(c,v,{a:A.a,b:A.b,t:A.t},C.pen,true,null);}
   if(A.kind==='lasso'){const x1=Math.min(A.a[0],A.b[0]),y1=Math.min(A.a[1],A.b[1]),w=Math.abs(A.b[0]-A.a[0]),h=Math.abs(A.b[1]-A.a[1]);c.fillStyle=hexA('#2f5fb3',.08);c.fillRect(X(x1),Y(y1),w*s,h*s);c.strokeStyle=C.pen;c.lineWidth=1.5;c.setLineDash([6,4]);c.strokeRect(X(x1),Y(y1),w*s,h*s);c.setLineDash([]);}
   if(A.kind==='rowEnd'){const it=A.it,p=plantById(it.p);const L=rowLen(it);const q=A.end===1?[it.x1,it.y1]:[it.x2,it.y2];
     pill(c,A.valid?`${fmt(L)}cm・${Math.floor(L/p.seedSp+1e-6)+1}株`:(A.msg||''),X(q[0]),Y(q[1])-26,{color:A.valid?C.pen:C.danger,bold:true});}
@@ -683,6 +687,7 @@ function areaCheck(a,b){const x1=Math.min(a[0],b[0]),y1=Math.min(a[1],b[1]),x2=M
 function startAction(sp){
   const w=toW(sp);const base={start:sp,moved:false};
   if(wmode!=='view'&&Math.hypot(sp.x-(CW-COMPASS.dx),sp.y-COMPASS.y)<30){action={...base,kind:'compass'};return;}
+  if(wmode==='dims'&&tool!=='measure'){dimsStart(sp,base);return;}
   if(wmode==='view'){const it=hitItem(w),b=it?null:hitBed(w);action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:it?{t:'item',id:it.id}:b?{t:'bed',id:b.id}:null};return;}
   switch(tool){
     case 'select':{
@@ -705,7 +710,7 @@ function startAction(sp){
     case 'row':{const p=needPlant('r');if(!p)return;const q=snapP(w);
       if(p.sow==='ばらまき'){action={...base,kind:'area',a:q,b:q,ok:false,msg:''};render();return;}
       action={...base,kind:'row',a:q,b:q,fit:null};render();return;}
-    case 'measure':{const q=snapP(w);action={...base,kind:'measure',a:q,b:q};measure=null;render();return;}
+    case 'measure':{const mi=hitMeasure(sp);if(mi>=0){action={...base,kind:'measureTap',idx:mi};return;}const q=snapFeature(sp);action={...base,kind:'measure',a:q,b:q};render();return;}
     default:action={...base,kind:'tap'};
   }
 }
@@ -742,7 +747,7 @@ function moveAction(sp){
       if(S.settings.angleSnap){const st=Math.PI/4,sn=Math.round(ang/st)*st;if(Math.abs(sn-ang)<0.12)ang=sn;}
       L=S.settings.snap>0?Math.round(L/S.settings.snap)*S.settings.snap:L;b=[A.a[0]+Math.cos(ang)*L,A.a[1]+Math.sin(ang)*L].map(v=>Math.round(v*10)/10);
       A.b=b;A.fit=L>0?fitRow(A.a,b,p.rowSp/2,obstacles()):null;break;}
-    case 'measure':A.b=snapP(w);break;
+    case 'measure':case 'dim':A.b=snapFeature(sp);break;
   }
   render();
 }
@@ -751,7 +756,7 @@ function endAction(sp,cancelled){
   const w=toW(sp);
   switch(A.kind){
     case 'compass':openNorth();break;
-    case 'pan':if(!A.moved)select(A.tapSel||null);break;
+    case 'pan':if(!A.moved){if(wmode==='dims'){if(tool==='dimDel'&&A.tapDim){pushUndo();plan().dims=planDims().filter(d=>d.id!==A.tapDim);sel=null;changed();toast('寸法を削除しました');}else{sel=A.tapDim?{t:'dim',id:A.tapDim}:null;refreshPanel();}}else select(A.tapSel||null);}break;
     case 'moveItem':if(A.moved){if(!A.valid){askOverlap(A.msg,()=>{pushUndo(A.snap);changed();},()=>{restore(A.snap);changed();});}else{pushUndo(A.snap);changed();}}break;
     case 'moveGroup':if(A.moved){if(!A.valid){askOverlap(A.msg,()=>{pushUndo(A.snap);changed();},()=>{restore(A.snap);changed();});}else{pushUndo(A.snap);changed();}}
       else if(A.toggleOff){const it=hitItem(w);if(it){msel.delete(it.id);refreshPanel();}}break;
@@ -774,7 +779,9 @@ function endAction(sp,cancelled){
       if(A.fit.ok&&!A.fit.trim){put(A.fit.b);break;}
       const canTrim=A.fit.ok&&A.fit.trim&&Math.hypot(A.fit.b[0]-A.a[0],A.fit.b[1]-A.a[1])>=5;
       askOverlap(A.fit.msg,()=>put(A.b),()=>render(),canTrim?{label:`短くして配置（${fmt(Math.hypot(A.fit.b[0]-A.a[0],A.fit.b[1]-A.a[1]))}cm）`,fn:()=>put(A.fit.b)}:null);break;}
-    case 'measure':measure={a:A.a,b:A.b};break;
+    case 'measure':snapHint=null;if(Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1])>=0.5){measures.push({a:A.a,b:A.b});updateHint();}break;
+    case 'measureTap':if(!A.moved){measures.splice(A.idx,1);updateHint();toast('計測線を消しました');}break;
+    case 'dim':{snapHint=null;const L=dimGeom({a:A.a,b:A.b,t:A.t}).L;if(!A.moved||L<1){toast('測りたい2点をドラッグで結んでください');break;}pushUndo();const d={id:uid(),t:A.t,a:A.a,b:A.b,label:''};planDims().push(d);sel={t:'dim',id:d.id};changed();break;}
     case 'tap':{if(A.moved)break;
       if(tool==='fill'){const b=hitBed(w);if(!b){toast('花壇をタップしてください');break;}autoFill(b);}
       if(tool==='erase'){const it=hitItem(w);if(it){pushUndo();plan().items=items().filter(i=>i!==it);if(sel&&sel.id===it.id)sel=null;changed();}else toast('植物をタップすると削除します（花壇は花壇編集で削除）');}
@@ -848,19 +855,22 @@ function promptText(title,label,val,cb){openModal(title,`<div class="fld"><label
 function select(s){sel=s;if(s)msel.clear();if(s&&!$('#panel').classList.contains('hidden')&&(tab==='plants'||tab==='disp'))tab='sel';refreshPanel();render();}
 function changed(){if(cur){cur.updated=Date.now();computeConflicts();}save();if(screen==='work'){render();refreshPanel();updateChip();}else if(screen==='page'&&pageRefresh)pageRefresh();}
 function openPanel(t){$('#panel').classList.remove('hidden');tab=t;refreshPanel();resize();}
-function setTool(t){tool=t;if(t!=='select'&&t!=='multi'&&msel.size){msel.clear();refreshPanel();}if(t!=='poly')polyPts=[];if(t!=='measure')measure=null;$$('#tb [data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));updateHint();render();}
+function setTool(t){tool=t;if(t!=='select'&&t!=='multi'&&msel.size){msel.clear();refreshPanel();}if(t!=='poly')polyPts=[];$$('#tb [data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));updateHint();render();}
 const HINTS={plant:{select:'植物をタップで選択・ドラッグで移動。選んだ条・ばらまきは端の○をドラッグで長さや大きさを変更。2本指でズーム（花壇は「花壇編集」で動かせます）',seedling:'押して位置を決め、離すと苗を置く。円＝株間の範囲',row:'ドラッグで播種の条を引く。帯の幅＝条間',
-  area:'ドラッグでばらまく範囲（長方形）を指定。面積から種の量を計算します',fill:'花壇をタップ → 選択中の植物を空きに自動配置',multi:'ドラッグで囲んでまとめて選択、タップで追加・解除。選んだものをドラッグでまとめて移動',measure:'ドラッグで距離を測る',erase:'植物をタップで削除'},
+  area:'ドラッグでばらまく範囲（長方形）を指定。面積から種の量を計算します',fill:'花壇をタップ → 選択中の植物を空きに自動配置',multi:'ドラッグで囲んでまとめて選択、タップで追加・解除。選んだものをドラッグでまとめて移動',measure:'ドラッグで距離を測る。続けて何本でも測れます。線の数字をタップで1本ずつ消せます',erase:'植物をタップで削除'},
   bed:{select:'花壇をタップで選択・ドラッグで移動。選んだ花壇の頂点●で変形、辺の中点○で頂点を追加',rect:'ドラッグで四角い花壇を追加',circle:'中心から外へドラッグで円形花壇を追加',
   poly:'タップで頂点を追加（押したまま位置調整）。最初の点をタップで完成',measure:'ドラッグで距離を測る（花壇どうしの通路幅など）'},
-  view:{select:'確認モード：タップで詳細を表示、ドラッグで画面移動、2本指でズーム'}};
+  view:{select:'確認モード：タップで詳細を表示、ドラッグで画面移動、2本指でズーム'},
+  dims:{select:'寸法をタップで選択。ドラッグで画面移動、2本指でズーム',dim:'2点をドラッグで結んで寸法を記録（花壇の角・苗の中心・条の端に吸着）',dimH:'2点をドラッグ → 水平方向の距離を記録',dimV:'2点をドラッグ → 垂直方向の距離を記録',dimDel:'寸法をタップで削除',measure:'ドラッグで距離を測る（記録はされません）'}};
 function updateHint(){const h=$('#hint');const hs=HINTS[wmode]||{};const key=wmode==='plant'&&tool==='row'&&activeIsBroadcast()?'area':tool;let x=`<span class="txt">${hs[key]||hs.select||''}</span>`;
+  if(tool==='measure'&&measures.length)x+=`<button class="btn sm" id="mClr">計測線を全部消す（${measures.length}本）</button>`;
   if(tool==='poly'&&polyPts.length)x+=`<button class="btn sm" id="pUndo">1点戻す</button><button class="btn sm" id="pCancel">中止</button><button class="btn sm pri" id="pDone" ${polyPts.length<3?'disabled':''}>完成</button>`;
-  h.innerHTML=x;const q=id=>$('#'+id);if(q('pDone')){q('pDone').onclick=finishPoly;q('pUndo').onclick=()=>{polyPts.pop();updateHint();render();};q('pCancel').onclick=()=>{polyPts=[];updateHint();render();};}
+  h.innerHTML=x;const q=id=>$('#'+id);if(q('mClr'))q('mClr').onclick=()=>{measures=[];updateHint();render();};if(q('pDone')){q('pDone').onclick=finishPoly;q('pUndo').onclick=()=>{polyPts.pop();updateHint();render();};q('pCancel').onclick=()=>{polyPts=[];updateHint();render();};}
   updateChip();}
 function updateChip(){const c=$('#chip');
   if(wmode==='bed'){const b=sel&&sel.t==='bed'&&bedById(sel.id);c.style.display='';c.innerHTML=b?`<b>${esc(b.name)}</b> ${sizeText(b)}・${fmt(bedArea(b)/10000)}㎡`:`<span class="muted">花壇 ${S.beds.length}個　四角・円・多角形で追加できます</span>`;return;}
   if(wmode==='view'){c.style.display='none';return;}
+  if(wmode==='dims'){c.style.display='';c.innerHTML=`<span class="muted">記録した寸法 ${planDims().length}本</span>`;return;}
   c.style.display='';const p=plantById(active.pid);
   if(!p||!active.m){c.innerHTML=`<span class="muted">植物タブで植物を選ぶと配置できます</span>`;return;}
   c.innerHTML=active.m==='s'?`<span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b> 苗・株間${p.seedlingSp}cm`:p.sow==='ばらまき'?`<span class="ln" style="background:${p.color};height:12px"></span><b>${esc(p.name)}</b> ばらまき・${p.perPoint}粒/㎡`:`<span class="ln" style="background:${p.color}"></span><b>${esc(p.name)}</b> ${p.sow}・条間${p.rowSp}／株間${p.seedSp}cm`;}
@@ -872,10 +882,11 @@ const SEP='<div class="sep"></div>';
 function renderToolbar(){let h='';
   const sels=`<select class="tsel" id="month" aria-label="作付け月">${monthOpts(S.settings.month)}</select><select class="tsel" id="plan" aria-label="プラン">${cur.plans.map((p,i)=>`<option value="${i}" ${i===cur.activePlan?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`;
   if(wmode==='plant')h=cmd('home','⌂','ホーム')+`<button class="ttl" data-cmd="rename" title="名前を変更">${esc(cur.name)} ✎</button>`+SEP+tb('select','✋','選択')+tb('multi','⬚','まとめて選択')+tb('seedling','●','苗')+tb('row','━','播種')+tb('fill','✦','自動配置')+SEP+
-    tb('measure','📏','計測')+tb('erase','⌫','削除')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+SEP+cmd('bedEdit','▭','花壇編集')+cmd('addBed','＋','花壇追加')+cmd('north','🧭','方位')+SEP+sels+cmd('panel','☰','パネル');
+    tb('measure','📏','計測')+tb('erase','⌫','削除')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+SEP+cmd('bedEdit','▭','花壇編集')+cmd('addBed','＋','花壇追加')+cmd('north','🧭','方位')+SEP+sels+cmd('export','⤓','出力')+cmd('panel','☰','パネル')+SEP+cmd('toDims','→','寸法記録へ','go');
+  if(wmode==='dims')h=cmd('toPlant','←','植え付けへ')+`<span class="ttl">寸法記録</span>`+SEP+tb('select','✋','選択')+tb('dim','↗','斜め')+tb('dimH','↔','水平')+tb('dimV','↕','垂直')+tb('dimDel','⌫','削除')+tb('measure','📏','計測')+SEP+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+sels+cmd('export','⤓','出力')+cmd('panel','☰','パネル')+SEP+cmd('finish','✓','完成','go');
   if(wmode==='bed')h=cmd('bedBack','←','戻る')+`<span class="ttl">花壇の配置・形</span>`+SEP+tb('select','✋','選択・移動')+tb('rect','▭','四角')+tb('circle','◯','円')+tb('poly','⬠','多角形')+SEP+
     tb('measure','📏','計測')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+cmd('north','🧭','方位')+cmd('panel','☰','パネル')+SEP+cmd('bedOk','→','決定','go');
-  if(wmode==='view')h=cmd('toRecords','←','記録へ')+`<span class="ttl">${esc(cur.name)}（確認）</span>`+SEP+cmd('fit','⤢','全体')+sels+cmd('panel','☰','パネル')+SEP+cmd('viewEdit','✎','つづきから','go')+cmd('viewCopy','⧉','コピーして編集');
+  if(wmode==='view')h=cmd('toRecords','←','記録へ')+`<span class="ttl">${esc(cur.name)}（確認）</span>`+SEP+cmd('fit','⤢','全体')+sels+cmd('export','⤓','出力')+cmd('panel','☰','パネル')+SEP+cmd('viewEdit','✎','つづきから','go')+cmd('viewCopy','⧉','コピーして編集');
   $('#tb').innerHTML=h;
   const m=$('#month'),pl=$('#plan');
   if(m)m.onchange=e=>{S.settings.month=+e.target.value;save();refreshPanel();};
@@ -891,6 +902,10 @@ $('#tb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(c==='addBed')showBedPick({from:'add'});
   if(c==='bedEdit')openWork('bed',{from:'edit',fit:false});
   if(c==='north')openNorth();
+  if(c==='export')openExport(false);
+  if(c==='toDims'){openWork('dims',{fit:false});toast('測りたい2点をドラッグで結んで寸法を記録します');}
+  if(c==='toPlant')openWork('plant',{fit:false});
+  if(c==='finish')finishPlan();
   if(c==='bedOk')bedDecide();
   if(c==='bedBack')bedCancel();
   if(c==='toRecords')showRecords();
@@ -947,7 +962,7 @@ function projectThumb(p,W=360,H=240){const keep=cur,ks=sel,kb=bs,km=wmode;cur=p;
   cur=keep;sel=ks;bs=kb;wmode=km;noLabels=false;return url;}
 function projSummary(p){const n=p.plans.reduce((a,pl)=>a+pl.items.length,0);return `花壇${p.beds.length}・配置${n}件`;}
 function showRecords(){const list=[...DB.projects].sort((a,b)=>b.updated-a.updated);
-  const body=list.length?`<div class="cards">${list.map(p=>`<div class="card"><img src="${projectThumb(p)}" alt="${esc(p.name)}の図"><div class="cb"><b>${esc(p.name)}</b><div class="muted">${projSummary(p)}<br>更新 ${fmtDate(p.updated)}</div></div>
+  const body=list.length?`<div class="cards">${list.map(p=>`<div class="card"><img src="${projectThumb(p)}" alt="${esc(p.name)}の図"><div class="cb"><b>${esc(p.name)}</b>${p.plans.some(x=>x.done)?' <span class="tag" style="background:var(--leaf);color:var(--panel)">完成</span>':''}<div class="muted">${projSummary(p)}<br>更新 ${fmtDate(p.updated)}</div></div>
     <div class="ca"><button class="btn sm" data-r="view" data-id="${p.id}">確認</button><button class="btn sm" data-r="copy" data-id="${p.id}">コピーして編集</button><button class="btn sm pri" data-r="cont" data-id="${p.id}">つづきから</button></div>
     <div class="row" style="padding:0 10px 10px;justify-content:flex-end"><button class="btn sm" data-r="ren" data-id="${p.id}">名前変更</button><button class="btn sm dan" data-r="del" data-id="${p.id}">削除</button></div></div>`).join('')}</div>`
     :`<div class="box"><p>まだ記録がありません。</p><button class="btn pri" data-r="new">新規作成する</button></div>`;
@@ -1012,8 +1027,9 @@ function jsonBedModal(ctx){openModal('座標データから花壇を登録',`<p 
     save();closeModal();showBedPick(ctx);toast(`${beds.length}個の花壇を登録しました`);};}
 
 /* ============ 作業画面 ============ */
-function openWork(mode,opts={}){wmode=mode;msel=new Set();showScreen('work');undoS=[];redoS=[];sel=null;measure=null;polyPts=[];action=null;
+function openWork(mode,opts={}){wmode=mode;msel=new Set();showScreen('work');undoS=[];redoS=[];sel=null;measures=[];polyPts=[];action=null;
   if(mode==='bed'){bs={from:opts.from||'edit',snap:opts.snap||snapshot(),created:opts.created||[]};if(opts.selId)sel={t:'bed',id:opts.selId};tool=S.beds.length?'select':'rect';tab='bed';}
+  else if(mode==='dims'){bs=null;tool='dim';tab='dims';}
   else{bs=null;tool='select';tab=mode==='view'?'sum':'plants';}
   if(innerWidth>760)$('#panel').classList.remove('hidden');
   renderToolbar();computeConflicts();refreshPanel();updateHint();
@@ -1039,13 +1055,13 @@ function bedDecide(){if(!S.beds.length)return toast('まず四角・円・多角
     closeModal();ensureProject();cur.updated=Date.now();saveNow();openWork('plant',{fit:true});toast(msg+'。植物を配置していきましょう');};}
 
 /* ============ パネル ============ */
-const TABS={plant:[['plants','植物'],['sel','選択中'],['sum','集計・寸法'],['mat','資材'],['disp','表示']],view:[['sel','選択中'],['sum','集計・寸法'],['mat','資材']],bed:[['bed','花壇'],['disp','表示']]};
+const TABS={plant:[['plants','植物'],['sel','選択中'],['sum','集計・寸法'],['mat','資材'],['disp','表示']],view:[['sel','選択中'],['sum','集計・寸法'],['mat','資材']],bed:[['bed','花壇'],['disp','表示']],dims:[['dims','寸法一覧'],['sum','集計・寸法'],['mat','資材'],['disp','表示']]};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;tab=b.dataset.tab;refreshPanel();});
 function refreshPanel(){if(screen!=='work'||!cur)return;updateChip();const ts=TABS[wmode];if(!ts.some(t=>t[0]===tab))tab=ts[0][0];
   $('#tabs').innerHTML=ts.map(([k,l])=>`<button data-tab="${k}" class="${k===tab?'on':''}">${l}</button>`).join('');
   if($('#panel').classList.contains('hidden'))return;
   const el=$('#pbody');const st=el.scrollTop;
-  let h=tab==='plants'?tabPlants():tab==='sel'?tabSel():tab==='sum'?tabSum():tab==='mat'?tabMat():tab==='bed'?tabBed():tabDisp();
+  let h=tab==='plants'?tabPlants():tab==='sel'?tabSel():tab==='sum'?tabSum():tab==='mat'?tabMat():tab==='bed'?tabBed():tab==='dims'?tabDims():tabDisp();
   if(wmode==='view'&&tab==='sel')h=`<fieldset disabled>${h}</fieldset>`;
   if(wmode==='view')h=`<div class="banner">確認モードです。編集するには上の「つづきから」か「コピーして編集」を押してください。</div>`+h;
   el.innerHTML=h;
@@ -1122,12 +1138,13 @@ function tabDisp(){const s=S.settings;const sel_=(k,opts)=>`<select class="inp" 
   <h3>プラン（季節ごとの配置）</h3><p class="muted">花壇はプロジェクト内で共通、植物の配置はプランごとです。</p>
   ${cur.plans.map((p,i)=>`<div class="row" style="margin-bottom:6px"><input class="inp" style="flex:1" data-plan="${i}" value="${esc(p.name)}"><button class="btn sm" data-act="dupPlan" data-i="${i}">複製</button><button class="btn sm dan" data-act="delPlan" data-i="${i}" ${cur.plans.length<2?'disabled':''}>削除</button></div>`).join('')}
   <button class="btn full" data-act="addPlan">プランを追加</button>
-  <h3>書き出し</h3><button class="btn full" data-act="image">図面を画像にする</button>`:''}`;}
+  <h3>出力</h3><button class="btn full" data-act="image">図面・数量表を画像やPDFで出力</button>`:''}`;}
 
 /* パネルのイベント */
 const pbody=$('#pbody');
 pbody.addEventListener('input',e=>{if(e.target.id==='pq'){ui.q=e.target.value;$('#plist').innerHTML=plantList();}});
 pbody.addEventListener('change',e=>{const t=e.target;if(wmode==='view')return;
+  if(t.dataset.dimlabel){const d=planDims().find(x=>x.id===t.dataset.dimlabel);if(d){pushUndo();d.label=t.value.trim();changed();}return;}
   if(t.dataset.set){const k=t.dataset.set;let v=t.type==='checkbox'?t.checked:t.value;if(typeof DEF[k]==='number')v=+v||0;S.settings[k]=v;if(k==='theme')applyTheme();save();render();if(k==='showAllSeasons')refreshPanel();return;}
   if(t.dataset.proj==='north'){pushUndo();cur.north=+t.value;changed();return;}
   if(t.dataset.plan){cur.plans[+t.dataset.plan].name=t.value||'プラン';save();renderToolbar();return;}
@@ -1174,7 +1191,11 @@ pbody.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b|
   if(a==='addPlan'){pushUndo();cur.plans.push({id:uid(),name:`プラン${cur.plans.length+1}`,items:[]});cur.activePlan=cur.plans.length-1;changed();renderToolbar();return;}
   if(a==='dupPlan'){const i=+b.dataset.i;pushUndo();const np=JSON.parse(JSON.stringify(cur.plans[i]));np.id=uid();np.name+='（複製）';np.items.forEach(x=>x.id=uid());cur.plans.splice(i+1,0,np);cur.activePlan=i+1;changed();renderToolbar();return;}
   if(a==='delPlan'){const i=+b.dataset.i;askConfirm(`「${cur.plans[i].name}」を削除しますか？`,()=>{pushUndo();cur.plans.splice(i,1);cur.activePlan=0;sel=null;changed();renderToolbar();});return;}
-  if(a==='image')return exportImage();
+  if(a==='image')return openExport(false);
+  if(a==='dimDel'){pushUndo();plan().dims=planDims().filter(d=>d.id!==b.dataset.id);sel=null;changed();return;}
+  if(a==='dimAuto')return autoBedDims();
+  if(a==='dimClear')return askConfirm('記録した寸法をすべて消しますか？',()=>{pushUndo();plan().dims=[];sel=null;changed();},'消す');
+  if(a==='finish')return finishPlan();
 });
 function dupItem(){const it=itemById(sel.id);const p=plantById(it.p);let c=null;
   if(it.k==='s'){const s=p.seedlingSp;for(const [dx,dy] of [[s,0],[0,s],[-s,0],[0,-s],[s/2,s*0.866],[-s/2,s*0.866]]){const t={...it,id:uid(),x:it.x+dx,y:it.y+dy};if(checkItem(t,obstacles()).ok){c=t;break;}}}
@@ -1357,6 +1378,137 @@ function presetsModal(){const have=new Set(S.plants.map(p=>p.name));const list=P
   $('#psAll').onchange=e=>$$('#mb .ps').forEach(x=>x.checked=e.target.checked);
   $('#psAdd').onclick=()=>{const names=$$('#mb .ps:checked').map(x=>x.value);if(!names.length)return toast('1つ以上選んでください');pushUndo();
     PRESETS.filter(a=>names.includes(a[0])).forEach(a=>S.plants.push(mkPlant(a)));closeModal();changed();toast(`${names.length}件を追加しました`);};}
+/* ============ 吸着点（計測・寸法用） ============ */
+function featurePts(){const P=[];
+  for(const b of S.beds){const bb=bbox(b.pts);if(b.shape==='circle'){const c=b.c;P.push([c.x,c.y],[c.x-c.r,c.y],[c.x+c.r,c.y],[c.x,c.y-c.r],[c.x,c.y+c.r]);}else b.pts.forEach(p=>P.push(p));
+    P.push([bb.minX,bb.minY],[bb.maxX,bb.minY],[bb.maxX,bb.maxY],[bb.minX,bb.maxY]);}
+  for(const it of items()){if(it.k==='s')P.push([it.x,it.y]);else if(it.k==='r')P.push([it.x1,it.y1],[it.x2,it.y2],[(it.x1+it.x2)/2,(it.y1+it.y2)/2]);
+    else P.push([it.x1,it.y1],[it.x2,it.y1],[it.x2,it.y2],[it.x1,it.y2]);}
+  return P;}
+let snapHint=null;
+function snapFeature(sp){let best=null,bd=20;for(const p of featurePts()){const d=Math.hypot(p[0]*V.s+V.ox-sp.x,p[1]*V.s+V.oy-sp.y);if(d<bd){bd=d;best=p;}}
+  snapHint=best?[...best]:null;return best?[+best[0].toFixed(1),+best[1].toFixed(1)]:snapP(toW(sp));}
+/* ============ 寸法（記録用） ============ */
+const planDims=()=>{const p=plan();return p.dims||(p.dims=[]);};
+function dimGeom(d){if(d.t==='h'){const b=[d.b[0],d.a[1]];return {a:d.a,b,ext:[d.b,b],L:Math.abs(d.b[0]-d.a[0])};}
+  if(d.t==='v'){const b=[d.a[0],d.b[1]];return {a:d.a,b,ext:[d.b,b],L:Math.abs(d.b[1]-d.a[1])};}
+  return {a:d.a,b:d.b,ext:null,L:Math.hypot(d.b[0]-d.a[0],d.b[1]-d.a[1])};}
+const DIMT={a:'斜め',h:'水平',v:'垂直'};
+function drawDim(c,v,d,col,isSel,idx){const g=dimGeom(d),s=v.s,X=x=>x*s+v.ox,Y=y=>y*s+v.oy;const ax=X(g.a[0]),ay=Y(g.a[1]),bx=X(g.b[0]),by=Y(g.b[1]);const L=Math.hypot(bx-ax,by-ay);
+  if(g.ext){c.strokeStyle=col;c.lineWidth=1;c.setLineDash([3,3]);c.beginPath();c.moveTo(X(g.ext[0][0]),Y(g.ext[0][1]));c.lineTo(X(g.ext[1][0]),Y(g.ext[1][1]));c.stroke();c.setLineDash([]);}
+  c.strokeStyle=col;c.fillStyle=col;c.lineWidth=isSel?3:1.6;c.beginPath();c.moveTo(ax,ay);c.lineTo(bx,by);c.stroke();
+  if(L>4){const ux=(bx-ax)/L,uy=(by-ay)/L,hs=Math.min(9,L/3);[[ax,ay,1],[bx,by,-1]].forEach(([x,y,k])=>{c.beginPath();c.moveTo(x,y);c.lineTo(x+k*ux*hs-uy*hs*.45,y+k*uy*hs+ux*hs*.45);c.lineTo(x+k*ux*hs+uy*hs*.45,y+k*uy*hs-ux*hs*.45);c.closePath();c.fill();});
+    const nx=-uy*6,ny=ux*6;c.beginPath();c.moveTo(ax-nx,ay-ny);c.lineTo(ax+nx,ay+ny);c.moveTo(bx-nx,by-ny);c.lineTo(bx+nx,by+ny);c.stroke();}
+  const t=`${idx!=null?`[${idx+1}] `:''}${d.label?d.label+' ':''}${fmt(g.L)}cm`;pill(c,t,(ax+bx)/2,(ay+by)/2,{color:col,size:12,bold:true,bgAlpha:.95});}
+function drawDims(c,v){const col=colors.danger;planDims().forEach((d,i)=>drawDim(c,v,d,sel&&sel.t==='dim'&&sel.id===d.id?colors.pen:col,sel&&sel.t==='dim'&&sel.id===d.id,i));}
+function hitDim(sp){const ds=planDims();for(let i=ds.length-1;i>=0;i--){const g=dimGeom(ds[i]);const a=[g.a[0]*V.s+V.ox,g.a[1]*V.s+V.oy],b=[g.b[0]*V.s+V.ox,g.b[1]*V.s+V.oy];if(dPS(sp.x,sp.y,a,b)<16)return ds[i];}return null;}
+function hitMeasure(sp){for(let i=measures.length-1;i>=0;i--){const m=measures[i];const mx=((m.a[0]+m.b[0])/2)*V.s+V.ox,my=((m.a[1]+m.b[1])/2)*V.s+V.oy;if(Math.hypot(sp.x-mx,sp.y-my)<22)return i;}return -1;}
+function dimsStart(sp,base){const w=toW(sp);
+  if(tool==='select'||tool==='dimDel'){const d=hitDim(sp);action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapDim:d?d.id:null};return;}
+  const q=snapFeature(sp);action={...base,kind:'dim',t:tool==='dimH'?'h':tool==='dimV'?'v':'a',a:q,b:q};render();}
+function autoBedDims(){pushUndo();const ds=planDims();S.beds.forEach(b=>{const bb=bbox(b.pts);const o=25;
+  ds.push({id:uid(),t:'h',a:[bb.minX,bb.minY-o],b:[bb.maxX,bb.minY-o],label:`${b.name} 幅`});ds.push({id:uid(),t:'v',a:[bb.minX-o,bb.minY],b:[bb.minX-o,bb.maxY],label:`${b.name} 奥行`});});
+  changed();toast('花壇の外形寸法を追加しました');}
+function tabDims(){const ds=planDims();
+  return `<h3>記録した寸法（${esc(plan().name)}）</h3><p class="muted">ツールバーの「斜め」「水平」「垂直」で、測りたい2点をドラッグで結びます。花壇の角・苗の中心・条の端などに自動で吸着します。名前を付けると図面に表示されます。</p>
+  ${ds.length?`<div class="scroll"><table><tr><th>No.</th><th>名前</th><th>種類</th><th class="n">寸法</th><th></th></tr>${ds.map((d,i)=>`<tr${sel&&sel.id===d.id?' style="background:var(--leafSoft)"':''}><td>${i+1}</td><td><input class="inp" style="min-height:36px;padding:4px 8px" data-dimlabel="${d.id}" value="${esc(d.label||'')}" placeholder="例：株元まで"></td><td>${DIMT[d.t]}</td><td class="n"><b>${fmt(dimGeom(d).L)}cm</b></td><td><button class="btn sm dan" data-act="dimDel" data-id="${d.id}">✕</button></td></tr>`).join('')}</table></div>`:'<div class="box muted">まだ寸法がありません。</div>'}
+  <div class="grid2" style="margin-top:10px"><button class="btn" data-act="dimAuto">花壇の外形寸法を自動で追加</button><button class="btn dan" data-act="dimClear" ${ds.length?'':'disabled'}>寸法をすべて消す</button></div>
+  <button class="btn pri full" style="margin-top:12px" data-act="finish">完成して図面を出力</button>`;}
+function finishPlan(){plan().done=true;cur.updated=Date.now();saveNow();refreshPanel();openExport(true);}
+
+/* ============ 出力（画像・PDF） ============ */
+const PAPER={A4:[297,210],A3:[420,297]};
+function pageCanvas(paper){const [mw,mh]=PAPER[paper];const k=paper==='A3'?5.9:7.1;const c=document.createElement('canvas');c.width=Math.round(mw*k);c.height=Math.round(mh*k);
+  const x=c.getContext('2d');x.fillStyle='#ffffff';x.fillRect(0,0,c.width,c.height);return {c,x,W:c.width,H:c.height,u:c.width/297};}
+function pageHeader(pg,title,no){const {x,W,u}=pg;const m=12*u;x.fillStyle='#1f3a2c';x.font=`700 ${7*u}px -apple-system,"Hiragino Sans",sans-serif`;x.textAlign='left';x.textBaseline='top';x.fillText(title,m,m);
+  x.font=`${3.6*u}px -apple-system,"Hiragino Sans",sans-serif`;x.fillStyle='#5f7166';const d=new Date();x.textAlign='right';x.fillText(`${cur.name}／${plan().name}　${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}　${no}`,W-m,m+2*u);
+  x.strokeStyle='#1f3a2c';x.lineWidth=u*.4;x.beginPath();x.moveTo(m,m+10*u);x.lineTo(W-m,m+10*u);x.stroke();return m+14*u;}
+function withLight(fn){const keep=colors;colors={paper:'#ffffff',panel:'#ffffff',ink:'#1f3a2c',sub:'#5f7166',leaf:'#3d7a4a',pen:'#2f5fb3',danger:'#c23b3b',grid:'#e3e9ee',gridMajor:'#bccbd8',soil:'#d8c29c',soilEdge:'#7d6040',line:'#d5ddd2'};try{return fn();}finally{colors=keep;}}
+function drawingSheet(paper,withDims,no){const pg=pageCanvas(paper);const top=pageHeader(pg,withDims?'寸法図（作付け図面）':'作付け図面',no);const {x,W,H,u}=pg;const m=12*u;
+  const t=tally(items());const legendH=(Math.ceil(t.length/4)*7+8)*u;const aw=W-2*m,ah=H-top-m-legendH;
+  const pts=S.beds.flatMap(b=>b.pts);if(withDims)planDims().forEach(d=>{pts.push(d.a,d.b);});if(pts.length){const bb=bbox(pts);const f=Math.max(1,u/4.4),dw=aw/f,dh=ah/f,pad=60;const s=Math.min((dw-pad*2)/(bb.w||1),(dh-pad*2)/(bb.h||1));
+    const dc=document.createElement('canvas');dc.width=Math.round(dw);dc.height=Math.round(dh);const dx=dc.getContext('2d');
+    const v={s,ox:(dw-bb.w*s)/2-bb.minX*s,oy:(dh-bb.h*s)/2-bb.minY*s};const ks=sel,km=wmode;sel=null;wmode='plant';
+    withLight(()=>{drawScene(dx,dw,dh,v,{export:true});if(withDims)planDims().forEach((d,i)=>drawDim(dx,v,d,'#c23b3b',false,i));});sel=ks;wmode=km;
+    x.imageSmoothingQuality='high';x.drawImage(dc,m,top,aw,ah);x.strokeStyle='#bccbd8';x.lineWidth=u*.3;x.strokeRect(m,top,aw,ah);}
+  x.font=`${3.4*u}px -apple-system,"Hiragino Sans",sans-serif`;x.textAlign='left';x.textBaseline='middle';
+  t.forEach((q,i)=>{const cx=m+(i%4)*(aw/4),cy=H-m-legendH+6*u+Math.floor(i/4)*7*u;x.fillStyle=q.p.color;x.beginPath();x.arc(cx+2*u,cy,1.8*u,0,Math.PI*2);x.fill();x.fillStyle='#1f3a2c';
+    x.fillText(`${q.p.name} ${q.sd?q.sd+'株':''}${q.rows?` ${q.rows}条(${q.rowPlants}株)`:''}${q.areas?` ばらまき${fmt(q.m2)}㎡`:''}`,cx+5*u,cy);});
+  return pg.c;}
+const stripTags=s=>String(s).replace(/<[^>]+>/g,'');
+function tableSheets(paper,title,sections,startNo){const pages=[];let pg=null,y=0,no=startNo;
+  const newPage=()=>{pg=pageCanvas(paper);y=pageHeader(pg,title,`p.${no++}`);pages.push(pg.c);};newPage();
+  for(const sec of sections){const {x,W,H,u}=pg;const m=12*u,aw=W-2*m,rh=6.2*u;
+    const need=(sec.rows.length+2)*rh+8*u;if(y+Math.min(need,rh*5)>pg.H-m)newPage();
+    const fs=`${3.5*u}px -apple-system,"Hiragino Sans",sans-serif`;
+    pg.x.fillStyle='#3d7a4a';pg.x.font=`700 ${4.6*u}px -apple-system,"Hiragino Sans",sans-serif`;pg.x.textAlign='left';pg.x.textBaseline='top';pg.x.fillText(sec.title,m,y);y+=7.5*u;
+    const ws=sec.w.map(f=>f*aw);const row=(cells,head)=>{if(y+rh>pg.H-m){newPage();pg.x.fillStyle='#3d7a4a';pg.x.font=`700 ${4*u}px -apple-system,sans-serif`;pg.x.textAlign='left';pg.x.textBaseline='top';pg.x.fillText(sec.title+'（続き）',m,y);y+=6.5*u;}
+      const X=pg.x;if(head){X.fillStyle='#eef2ea';X.fillRect(m,y,aw,rh);}X.strokeStyle='#d5ddd2';X.lineWidth=u*.25;X.beginPath();X.moveTo(m,y+rh);X.lineTo(m+aw,y+rh);X.stroke();
+      let cx=m;cells.forEach((cv,i)=>{X.fillStyle=head?'#5f7166':'#1f3a2c';X.font=(head?'600 ':'')+fs;X.textBaseline='middle';const num=sec.num&&sec.num.includes(i);X.textAlign=num?'right':'left';
+        let s=stripTags(cv??'');while(s.length>1&&X.measureText(s).width>ws[i]-2*u)s=s.slice(0,-2)+'…';X.fillText(s,num?cx+ws[i]-1.5*u:cx+1.5*u,y+rh/2);cx+=ws[i];});y+=rh;};
+    row(sec.head,true);sec.rows.forEach(r=>row(r,false));y+=6*u;}
+  return pages;}
+function qtySections(){const t=tally(items());const secs=[];
+  secs.push({title:'植え付け数量',head:['植物','方法','苗','播種','株数計','種の量'],w:[.22,.16,.1,.24,.1,.18],num:[2,4,5],
+    rows:t.map(x=>[x.p.name,[x.sd?'苗':'',x.rows?x.p.sow:'',x.areas?'ばらまき':''].filter(Boolean).join('・'),x.sd?x.sd+'株':'',[x.rows?`${x.rows}条 ${fmt(x.len)}cm`:'',x.areas?`${fmt(x.m2)}㎡`:''].filter(Boolean).join(' / '),String(x.sd+x.rowPlants+x.areaPlants),x.rows||x.areas?`${x.seeds}粒`:''])});
+  const M=materials();
+  if(M.poles.length)secs.push({title:'支柱',head:['規格','用途','本数'],w:[.25,.6,.15],num:[2],rows:[...M.poles.map(p=>[`${p.len}cm φ${p.dia}mm`,p.why.join('／'),p.n+'本']),['合計','',M.poles.reduce((a,p)=>a+p.n,0)+'本']]});
+  if(M.nets.length)secs.push({title:'ネット',head:['規格','場所・必要な長さ','枚数'],w:[.35,.5,.15],num:[2],rows:M.nets.map(n=>[`幅${n.w}cm×${fmt(n.len/100)}m 網目${n.mesh}cm`,`${n.where}　${fmt(n.need)}cm`,n.sheets+'枚'])});
+  if(M.extras.length)secs.push({title:'小物',head:['品名','数量'],w:[.8,.2],num:[1],rows:M.extras.map(e=>[e.name,e.n+e.unit])});
+  if(M.prot.length)secs.push({title:'防寒・防虫・マルチ',head:['資材','場所','規格・数量','備考'],w:[.2,.2,.35,.25],rows:M.prot.map(g=>[g.type,g.where,g.spec,g.sub])});
+  const st=S.settings,tot=S.beds.reduce((a,b)=>a+bedArea(b),0)/10000;
+  secs.push({title:'土づくり',head:['花壇','面積','堆肥','苦土石灰','元肥'],w:[.3,.175,.175,.175,.175],num:[1,2,3,4],rows:[...S.beds.map(b=>{const a=bedArea(b)/10000;return [b.name,fmt(a)+'㎡',fmt(a*st.compost)+'kg',Math.round(a*st.lime)+'g',Math.round(a*st.fert)+'g'];}),['合計',fmt(tot)+'㎡',fmt(tot*st.compost)+'kg',Math.round(tot*st.lime)+'g',Math.round(tot*st.fert)+'g']]});
+  return secs;}
+function posSections(){const secs=[];for(const b of S.beds){const list=items().filter(i=>itemBed(i)===b);if(!list.length)continue;const o=relOf(b);
+  const rows=list.map(i=>({i,p:plantById(i.p),y:i.k==='s'?i.y:Math.min(i.y1,i.y2),x:i.k==='s'?i.x:Math.min(i.x1,i.x2)})).sort((a,c)=>a.y-c.y||a.x-c.x).map(({i,p})=>
+    i.k==='s'?[p.name,'苗',fmt(i.x-o.x),fmt(i.y-o.y),'']:i.k==='a'?[p.name,'ばらまき（左上）',fmt(Math.min(i.x1,i.x2)-o.x),fmt(Math.min(i.y1,i.y2)-o.y),`${fmt(Math.abs(i.x2-i.x1))}×${fmt(Math.abs(i.y2-i.y1))}`]:
+    [p.name,'条 始点→終点',`${fmt(i.x1-o.x)} → ${fmt(i.x2-o.x)}`,`${fmt(i.y1-o.y)} → ${fmt(i.y2-o.y)}`,fmt(rowLen(i))]);
+  secs.push({title:`位置合わせ寸法　${b.name}（左上角が0・単位cm）`,head:['植物','種類','左から','上から','長さ・大きさ'],w:[.24,.2,.2,.2,.16],num:[2,3,4],rows});}
+  const ds=planDims();if(ds.length)secs.unshift({title:'記録した寸法',head:['No.','名前','種類','寸法'],w:[.1,.5,.2,.2],num:[3],rows:ds.map((d,i)=>[String(i+1),d.label||'',DIMT[d.t],fmt(dimGeom(d).L)+'cm'])});
+  return secs;}
+function buildPages(sheets,paper){let no=1;const out=[];
+  if(sheets.includes('plan'))out.push(drawingSheet(paper,false,`p.${no++}`));
+  if(sheets.includes('dims'))out.push(drawingSheet(paper,true,`p.${no++}`));
+  if(sheets.includes('qty')){const p=tableSheets(paper,'数量表・資材表',qtySections(),no);no+=p.length;out.push(...p);}
+  if(sheets.includes('pos')){const secs=posSections();if(secs.length){const p=tableSheets(paper,'寸法一覧・位置合わせ表',secs,no);no+=p.length;out.push(...p);}}
+  return out;}
+function makePdf(pages,paper){const [mw,mh]=PAPER[paper];const PW=mw*72/25.4,PH=mh*72/25.4;const enc=new TextEncoder();const parts=[];let len=0;const offs=[];
+  const push=b=>{const u=typeof b==='string'?enc.encode(b):b;parts.push(u);len+=u.length;};
+  const obj=(n,body)=>{offs[n]=len;push(`${n} 0 obj\n`);body();push('\nendobj\n');};
+  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');const n=pages.length;const kids=pages.map((_,i)=>`${3+i*3} 0 R`).join(' ');
+  obj(1,()=>push('<</Type/Catalog/Pages 2 0 R>>'));obj(2,()=>push(`<</Type/Pages/Kids[${kids}]/Count ${n}>>`));
+  pages.forEach((c,i)=>{const pi=3+i*3,ii=pi+1,ci=pi+2;const b64=c.toDataURL('image/jpeg',0.9).split(',')[1];const bin=atob(b64);const img=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)img[k]=bin.charCodeAt(k);
+    const cs=`q ${PW.toFixed(2)} 0 0 ${PH.toFixed(2)} 0 0 cm /Im0 Do Q`;
+    obj(pi,()=>push(`<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${PW.toFixed(2)} ${PH.toFixed(2)}]/Resources<</XObject<</Im0 ${ii} 0 R>>>>/Contents ${ci} 0 R>>`));
+    obj(ii,()=>{push(`<</Type/XObject/Subtype/Image/Width ${c.width}/Height ${c.height}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${img.length}>>\nstream\n`);push(img);push('\nendstream');});
+    obj(ci,()=>push(`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`));});
+  const total=3+n*3;const xref=len;let x=`xref\n0 ${total}\n0000000000 65535 f \n`;for(let k=1;k<total;k++)x+=String(offs[k]).padStart(10,'0')+' 00000 n \n';
+  push(x+`trailer\n<</Size ${total}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF`);return new Blob(parts,{type:'application/pdf'});}
+function blobToDataURL(blob,cb){const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(blob);}
+function deliverFiles(files){/* files: [{name,blob}] */
+  if(NATIVE){files.forEach(f=>blobToDataURL(f.blob,u=>nativePost({type:'shareImage',name:f.name,data:u})));return;}
+  try{const fs=files.map(f=>new File([f.blob],f.name,{type:f.blob.type}));if(navigator.canShare&&navigator.canShare({files:fs})){navigator.share({files:fs,title:cur.name}).catch(()=>{});return;}}catch(e){}
+  files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f.blob);a.download=f.name;document.body.appendChild(a);a.click();a.remove();});}
+function dataURLtoBlob(u){const [h,b]=u.split(',');const bin=atob(b);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:h.match(/:(.*?);/)[1]});}
+function openExport(fromFinish){const hasDims=planDims().length>0;const safe=s=>s.replace(/[\\/:*?"<>|\s]/g,'_');
+  openModal(fromFinish?'作付け図面が完成しました':'出力',`${fromFinish?'<p class="good"><b>「完成」として記録しました。</b>必要なものを選んで保存・共有してください。</p>':''}
+  <h3>出力するもの</h3>
+  <label class="sw"><input type="checkbox" class="exS" value="plan" checked>作付け図面（植え付けの配置図）</label>
+  <label class="sw"><input type="checkbox" class="exS" value="dims" ${hasDims?'checked':'disabled'}>寸法図（記録した寸法入り）${hasDims?'':'　<span class="muted">※寸法記録で追加できます</span>'}</label>
+  <label class="sw"><input type="checkbox" class="exS" value="qty" checked>数量表・資材表</label>
+  <label class="sw"><input type="checkbox" class="exS" value="pos" ${fromFinish?'checked':''}>寸法一覧・位置合わせ表</label>
+  <h3>用紙</h3><div class="seg" id="exP"><button data-p="A4" class="on">A4 横</button><button data-p="A3">A3 横</button></div>
+  <p class="muted">PDFはすべてを1つのファイルにまとめます。画像は1ページずつPNGになります。共有メニューから「"ファイル"に保存」やAirDrop、印刷ができます。</p><div id="exPrev"></div>`,
+  `<button class="btn" data-close>閉じる</button><button class="btn" id="exImg">画像で保存</button><button class="btn pri" id="exPdf">PDFで保存</button>`);
+  let paper='A4';$$('#exP button').forEach(b=>b.onclick=()=>{paper=b.dataset.p;$$('#exP button').forEach(x=>x.classList.toggle('on',x===b));});
+  const pick=()=>$$('.exS:checked').map(i=>i.value);const base=safe(`${cur.name}-${plan().name}`);
+  $('#exPdf').onclick=()=>{const s=pick();if(!s.length)return toast('出力するものを選んでください');let pages;try{pages=buildPages(s,paper);}catch(e){return toast('出力に失敗しました');}if(!pages.length)return toast('出力する内容がありません');
+    deliverFiles([{name:`${base}.pdf`,blob:makePdf(pages,paper)}]);toast(`PDF（${pages.length}ページ）を作成しました`);};
+  $('#exImg').onclick=()=>{const s=pick();if(!s.length)return toast('出力するものを選んでください');const pages=buildPages(s,paper);if(!pages.length)return toast('出力する内容がありません');
+    const urls=pages.map(c=>c.toDataURL('image/png'));const files=urls.map((u,i)=>({name:`${base}-${i+1}.png`,blob:dataURLtoBlob(u)}));
+    $('#exPrev').innerHTML=`<p class="muted">画像を長押しでも保存できます。</p>`+urls.map(u=>`<img src="${u}" alt="出力画像" style="width:100%;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;${NATIVE?'-webkit-touch-callout:none':''}">`).join('');
+    deliverFiles(files);};}
+
 /* ============ 書き出し ============ */
 function exportData(){const j=JSON.stringify(DB);openModal('データを書き出す',`<p class="muted">すべての計画・作物一覧・花壇一覧を含みます。「ファイルに保存」するか、文字列をコピーしてメモなどに保存してください。</p><textarea class="inp" id="exT" readonly>${esc(j)}</textarea>`,
   `<button class="btn" data-close>閉じる</button><button class="btn" id="exF">ファイルに保存</button><button class="btn pri" id="exC">コピーする</button>`);
