@@ -211,8 +211,6 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const fmt=n=>{const v=Math.round(n*10)/10;return (Object.is(v,-0)?0:v).toString();};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const SUPPORTS=['なし','支柱','ネット'];
-const PROTECTS=['なし','不織布','トンネル','マルチ'];
 const CATS=['野菜','ハーブ','花'];
 const PALETTE=['#d9463b','#3f8f3a','#6b3fa0','#e6c229','#ef8a2a','#2e8b57','#e05a7a','#5b7fd6','#b08b57','#8e7cc3'];
 
@@ -275,26 +273,51 @@ function fmtMonths(arr){
   for(let i=1;i<=a.length;i++){ if(a[i]===p+1){p=a[i];continue;} r.push(s===p?`${s}`:`${s}-${p}`); s=p=a[i]; }
   return r.join('・')+'月';
 }
+const POLE_LENS=[60,90,120,150,180,210,240,270,300];
+const POLE_DIAS=[8,11,16,20,25];
+const POLE_STYLES=['一本型','合掌型','ピラミッド型','あんどん型'];
+const STYLE_PER={'一本型':1,'合掌型':2,'ピラミッド型':1,'あんどん型':4};
+const STYLE_NOTE={'一本型':'1株に1本','合掌型':'1株に2本を交差させ、上に横棒を渡す','ピラミッド型':'4株で1組、支柱の先を1か所で束ねる','あんどん型':'1株を4本とリングで囲む'};
+const NET_W=[90,120,150,180,270],NET_L=[180,270,360,540,1000],NET_MESH=[10,15,18,24];
+const FLEECE_W=[90,135,180,210,230,270],MULCH_W=[95,135,150],MULCH_T=['黒','白黒','透明','シルバー'],TUNNEL_COVER=['不織布','ビニール','防虫ネット'];
+const SOWS=['点まき','すじまき','ばらまき'];
+function defMat(){return {pole:{on:false,len:150,dia:16,style:'一本型',per:0},net:{on:false,w:180,len:360,mesh:18}};}
+function defProt(){return {fleece:{on:false,w:180},tunnel:{on:false,cover:'不織布'},mulch:{on:false,w:95,type:'黒'},straw:{on:false,kg:1},husk:{on:false,kg:3}};}
+function normalizePlant(p){const dm=defMat(),dp=defProt();
+  if(!p.mat){p.mat=dm;if(p.support==='支柱'){p.mat.pole.on=true;p.mat.pole.len=p.supLen||150;}if(p.support==='ネット'){p.mat.net.on=true;}}
+  if(!p.prot){p.prot=dp;if(p.protect==='不織布')p.prot.fleece.on=true;if(p.protect==='トンネル')p.prot.tunnel.on=true;if(p.protect==='マルチ')p.prot.mulch.on=true;}
+  p.mat={pole:{...dm.pole,...p.mat.pole},net:{...dm.net,...p.mat.net}};
+  p.prot=Object.fromEntries(Object.keys(dp).map(k=>[k,{...dp[k],...(p.prot[k]||{})}]));
+  delete p.support;delete p.supLen;delete p.protect;if(!SOWS.includes(p.sow))p.sow='点まき';p.harvM=p.harvM||[];return p;}
+const PRESET_MAT={'キュウリ':{style:'合掌型',net:true},'エンドウ':{net:true},'ソラマメ':{pole:{len:120,style:'一本型'}},'タマネギ':{husk:true},'ニンニク':{husk:true},'イチゴ':{straw:true},'ホウレンソウ':{fleece:true}};
 function mkPlant(a){
-  return {id:uid(),name:a[0],cat:a[1],seedM:parseMonths(a[2]),plantM:parseMonths(a[3]),harvM:parseMonths(a[4]),
+  const p=normalizePlant({id:uid(),name:a[0],cat:a[1],seedM:parseMonths(a[2]),plantM:parseMonths(a[3]),harvM:parseMonths(a[4]),
     rowSp:+a[5]||0,seedSp:+a[6]||0,sow:a[7]||'点まき',perPoint:+a[8]||0,seedlingSp:+a[9]||0,
-    support:a[10]||'なし',supLen:+a[11]||0,protect:a[12]||'なし',color:a[13]||PALETTE[Math.floor(Math.random()*PALETTE.length)],memo:''};
-}
-const hasSeed=p=>p.rowSp>0&&p.seedSp>0&&p.seedM.length>0;
+    support:a[10]||'なし',supLen:+a[11]||0,protect:a[12]||'なし',color:a[13]||PALETTE[Math.floor(Math.random()*PALETTE.length)],memo:''});
+  const o=PRESET_MAT[p.name];
+  if(o){if(o.style){p.mat.pole.on=true;p.mat.pole.style=o.style;}if(o.pole){p.mat.pole.on=true;Object.assign(p.mat.pole,o.pole);}if(o.net)p.mat.net.on=true;if(o.husk)p.prot.husk.on=true;if(o.straw)p.prot.straw.on=true;if(o.fleece)p.prot.fleece.on=true;}
+  return p;}
+const hasSeed=p=>p.seedM.length>0&&(p.sow==='ばらまき'?p.perPoint>0:(p.rowSp>0&&p.seedSp>0));
 const hasSeedling=p=>p.seedlingSp>0&&p.plantM.length>0;
 const DEF={grid:10,snap:5,angleSnap:true,month:new Date().getMonth()+1,showLabels:true,showDims:true,
   showAllSeasons:false,pattern:'hex',rowDir:'auto',north:0,compost:2,lime:100,fert:100,theme:'auto'};
-const BED_PRESETS=[['長方形 90×180','rect',90,180],['長方形 120×240','rect',120,240],['レイズドベッド 60×120','rect',60,120],['正方形 120×120','rect',120,120],['円形 直径120','circle',120],['L字 180×180','poly',[[0,0],[180,0],[180,60],[60,60],[60,180],[0,180]]]];
-function mkBedType(a){if(a[1]==='rect')return {id:uid(),name:a[0],shape:'rect',pts:rectPts(0,0,a[2],a[3])};
-  if(a[1]==='circle'){const r=a[2]/2;return {id:uid(),name:a[0],shape:'circle',c:{x:r,y:r,r},pts:circPts(r,r,r)};}
-  return {id:uid(),name:a[0],shape:'poly',pts:a[2].map(p=>[...p])};}
-function newDB(){return {v:2,settings:{...DEF},plants:PRESETS.filter(a=>DEFAULT_PLANTS.includes(a[0])).map(mkPlant),bedTypes:BED_PRESETS.map(mkBedType),projects:[]};}
+const POTAGER_BEDS=[{"name":"①","label":"① 円形花壇","circle":[337,237,63]},{"name":"②","label":"② 左上","pts":[[0,0],[277,0],[277,54.77],[271.54,56.66],[266.13,58.72],[260.79,60.94],[255.51,63.32],[250.31,65.85],[245.19,68.54],[240.16,71.39],[235.21,74.38],[230.35,77.52],[225.59,80.81],[220.94,84.24],[216.38,87.81],[211.94,91.51],[207.61,95.35],[203.4,99.31],[199.31,103.4],[195.35,107.61],[191.51,111.94],[187.81,116.38],[184.24,120.94],[180.81,125.59],[177.52,130.35],[174.38,135.21],[171.39,140.16],[168.54,145.19],[165.85,150.31],[163.32,155.51],[160.94,160.79],[158.72,166.13],[156.66,171.54],[154.77,177],[0,177]]},{"name":"③","label":"③ 左下","pts":[[0,474],[277,474],[277,419.23],[271.54,417.34],[266.13,415.28],[260.79,413.06],[255.51,410.68],[250.31,408.15],[245.19,405.46],[240.16,402.61],[235.21,399.62],[230.35,396.48],[225.59,393.19],[220.94,389.76],[216.38,386.19],[211.94,382.49],[207.61,378.65],[203.4,374.69],[199.31,370.6],[195.35,366.39],[191.51,362.06],[187.81,357.62],[184.24,353.06],[180.81,348.41],[177.52,343.65],[174.38,338.79],[171.39,333.84],[168.54,328.81],[165.85,323.69],[163.32,318.49],[160.94,313.21],[158.72,307.87],[156.66,302.46],[154.77,297],[0,297]]},{"name":"④","label":"④ 中央上","pts":[[397,0],[774,0],[774,149.09],[746.1,177],[519.24,177],[517.34,171.54],[515.28,166.13],[513.06,160.79],[510.69,155.52],[508.15,150.32],[505.46,145.2],[502.62,140.16],[499.62,135.21],[496.48,130.36],[493.19,125.6],[489.76,120.94],[486.19,116.39],[482.49,111.94],[478.65,107.61],[474.69,103.4],[470.6,99.31],[466.39,95.35],[462.06,91.51],[457.62,87.81],[453.06,84.24],[448.41,80.81],[443.65,77.52],[438.79,74.38],[433.84,71.39],[428.81,68.54],[423.69,65.85],[418.49,63.32],[413.21,60.94],[407.87,58.72],[402.47,56.66],[397,54.77]]},{"name":"⑤","label":"⑤ 中央下","pts":[[397,474],[774,474],[774,324.91],[746.1,297],[519.24,297],[517.34,302.46],[515.28,307.87],[513.06,313.21],[510.69,318.48],[508.15,323.68],[505.46,328.8],[502.62,333.84],[499.62,338.79],[496.48,343.64],[493.19,348.4],[489.76,353.06],[486.19,357.61],[482.49,362.06],[478.65,366.39],[474.69,370.6],[470.6,374.69],[466.39,378.65],[462.06,382.49],[457.62,386.19],[453.06,389.76],[448.41,393.19],[443.65,396.48],[438.79,399.62],[433.84,402.61],[428.81,405.46],[423.69,408.15],[418.49,410.68],[413.21,413.06],[407.87,415.28],[402.47,417.34],[397,419.23]]},{"name":"⑥","label":"⑥ 右上","pts":[[894,0],[1171,0],[1171,177],[921.9,177],[894,149.09]]},{"name":"⑦","label":"⑦ 右下","pts":[[894,474],[1171,474],[1171,297],[921.9,297],[894,324.91]]}];
+const OLD_BED_PRESETS=['長方形 90×180','長方形 120×240','レイズドベッド 60×120','正方形 120×120','円形 直径120','L字 180×180'];
+function potagerBed(b){if(b.circle){const [x,y,r]=b.circle;return {name:b.name,shape:'circle',c:{x,y,r},pts:circPts(x,y,r)};}return {name:b.name,shape:'poly',pts:b.pts.map(p=>[...p])};}
+function moveBeds(beds,dx,dy){return beds.map(b=>{const n=JSON.parse(JSON.stringify(b));n.pts=n.pts.map(p=>[p[0]+dx,p[1]+dy]);if(n.c){n.c.x+=dx;n.c.y+=dy;}return n;});}
+function normBeds(beds){const bb=bbox(beds.flatMap(b=>b.pts));return moveBeds(beds,-bb.minX,-bb.minY);}
+function presetTypes(){const all=POTAGER_BEDS.map(potagerBed);const out=[{id:uid(),name:'ポタジェ全体（①〜⑦）',beds:all}];
+  POTAGER_BEDS.forEach((b,i)=>out.push({id:uid(),name:b.label,beds:normBeds([all[i]])}));return out;}
+function normType(t){if(t.beds)return t;return {id:t.id||uid(),name:t.name,beds:[{name:'',shape:t.shape,pts:t.pts,c:t.c}]};}
+function newDB(){return {v:2,presets3:true,settings:{...DEF},plants:PRESETS.filter(a=>DEFAULT_PLANTS.includes(a[0])).map(mkPlant),bedTypes:presetTypes(),projects:[]};}
 function newProject(name){const m=DB.settings.month;const now=Date.now();
-  return {id:uid(),name,created:now,updated:now,beds:[],plans:[{id:uid(),name:'春夏プラン',items:[]},{id:uid(),name:'秋冬プラン',items:[]}],activePlan:(m>=2&&m<=7)?0:1};}
-function fixDB(o){o.settings={...DEF,...o.settings};o.plants=o.plants||[];o.bedTypes=o.bedTypes||[];o.projects=o.projects||[];return o;}
+  return {id:uid(),name,created:now,updated:now,north:DB.settings.north||0,beds:[],plans:[{id:uid(),name:'春夏プラン',items:[]},{id:uid(),name:'秋冬プラン',items:[]}],activePlan:(m>=2&&m<=7)?0:1};}
+function fixDB(o){o.settings={...DEF,...o.settings};o.plants=(o.plants||[]).map(normalizePlant);o.bedTypes=(o.bedTypes||[]).map(normType);o.projects=o.projects||[];
+  if(!o.presets3){o.bedTypes=[...presetTypes(),...o.bedTypes.filter(t=>!OLD_BED_PRESETS.includes(t.name))];o.presets3=true;}
+  o.projects.forEach(p=>{if(p.north==null)p.north=o.settings.north||0;});return o;}
 function migrateV1(o){const d=newDB();d.plants=o.plants||d.plants;d.settings={...DEF,...o.settings};delete d.settings.projectName;
   if(o.beds&&o.beds.length){const now=Date.now();d.projects.push({id:uid(),name:(o.settings&&o.settings.projectName)||'わたしのポタジェ',created:now,updated:now,beds:o.beds,plans:o.plans,activePlan:o.activePlan||0});}
-  return d;}
+  return fixDB(d);}
 
 /* ============ 保存 ============ */
 const KEY1='potager-planner-v1',KEY2='potager-planner-v2';
@@ -316,13 +339,14 @@ const S={get settings(){return DB.settings;},get plants(){return DB.plants;},set
   get beds(){return cur?cur.beds:[];},set beds(v){cur.beds=v;},get plans(){return cur?cur.plans:[];},set plans(v){cur.plans=v;},
   get activePlan(){return cur?cur.activePlan:0;},set activePlan(v){cur.activePlan=v;}};
 let undoS=[],redoS=[];
-function snapshot(){return JSON.stringify({plants:DB.plants,bedTypes:DB.bedTypes,cur:cur?{name:cur.name,beds:cur.beds,plans:cur.plans,activePlan:cur.activePlan}:null,bedId:bs?bs.bedId:null});}
-function restore(t){const o=JSON.parse(t);DB.plants=o.plants;DB.bedTypes=o.bedTypes;if(cur&&o.cur)Object.assign(cur,o.cur);if(bs)bs.bedId=o.bedId;}
+function snapshot(){return JSON.stringify({plants:DB.plants,bedTypes:DB.bedTypes,cur:cur?{name:cur.name,north:cur.north,beds:cur.beds,plans:cur.plans,activePlan:cur.activePlan}:null});}
+function restore(t){const o=JSON.parse(t);DB.plants=o.plants;DB.bedTypes=o.bedTypes;if(cur&&o.cur)Object.assign(cur,o.cur);}
 function pushUndo(snap){undoS.push(snap||snapshot());if(undoS.length>80)undoS.shift();redoS=[];}
 function undo(){if(!undoS.length)return toast('これ以上戻せません');redoS.push(snapshot());restore(undoS.pop());fixSel();changed();}
 function redo(){if(!redoS.length)return toast('やり直す操作がありません');undoS.push(snapshot());restore(redoS.pop());fixSel();changed();}
-function fixSel(){if(wmode==='bed'){sel=bs&&bs.bedId&&bedById(bs.bedId)?{t:'bed',id:bs.bedId}:null;}else sel=null;}
+function fixSel(){if(sel&&sel.t==='bed'&&!bedById(sel.id))sel=null;if(sel&&sel.t==='item'&&!itemById(sel.id))sel=null;}
 function allPlans(){return [...DB.projects,pending].filter(Boolean).flatMap(p=>p.plans);}
+const northOf=()=>cur&&cur.north!=null?cur.north:(S.settings.north||0);
 
 /* ============ 実行時状態 ============ */
 let tool='select', sel=null, active={pid:null,m:null}, polyPts=[], measure=null, conflicts=new Set(), tab='plants', ui={q:'',cq:'',ccat:'all'};
@@ -351,77 +375,101 @@ function bedOfPoint(x,y){for(let i=S.beds.length-1;i>=0;i--)if(pip(x,y,S.beds[i]
 function itemBed(it){return it.k==='s'?bedOfPoint(it.x,it.y):bedOfPoint(it.x1,it.y1);}
 function rowLen(it){return Math.hypot(it.x2-it.x1,it.y2-it.y1);}
 
-/* ============ 間隔チェック ============ */
-function shapeOf(it){const p=plantById(it.p);if(!p)return null;return it.k==='s'?{id:it.id,k:'s',x:it.x,y:it.y,r:p.seedlingSp/2}:{id:it.id,k:'r',a:[it.x1,it.y1],b:[it.x2,it.y2],w:p.rowSp/2};}
+/* ============ 間隔チェック（苗＝円、条＝帯、ばらまき＝長方形） ============ */
+function shapeOf(it){const p=plantById(it.p);if(!p)return null;
+  if(it.k==='s')return {id:it.id,k:'s',x:it.x,y:it.y,r:p.seedlingSp/2};
+  if(it.k==='a')return {id:it.id,k:'a',x1:Math.min(it.x1,it.x2),y1:Math.min(it.y1,it.y2),x2:Math.max(it.x1,it.x2),y2:Math.max(it.y1,it.y2),r:0};
+  return {id:it.id,k:'r',a:[it.x1,it.y1],b:[it.x2,it.y2],r:p.rowSp/2};}
 function obstacles(exId){return items().filter(i=>i.id!==exId).map(shapeOf).filter(Boolean);}
-function obsName(o){const it=o.id&&itemById(o.id);const p=it&&plantById(it.p);return p?p.name:'他の株';}
-function checkCircle(x,y,r,obs,bedReq){
-  const b=bedOfPoint(x,y);
-  if(!b||(bedReq&&b!==bedReq))return {ok:false,msg:'花壇の外です'};
-  const P=b.pts,n=P.length;
-  for(let i=0;i<n;i++)if(dPS(x,y,P[i],P[(i+1)%n])<r-EPS)return {ok:false,bed:b,msg:`花壇の縁から${fmt(r)}cm以上離してください`};
-  for(const o of obs){
-    if(o.k==='s'){if(Math.hypot(x-o.x,y-o.y)<r+o.r-EPS)return {ok:false,bed:b,msg:`${obsName(o)}と株間が重なります`};}
-    else if(dPS(x,y,o.a,o.b)<r+o.w-EPS)return {ok:false,bed:b,msg:`${obsName(o)}の条間と重なります`};
-  }
-  return {ok:true,bed:b};
-}
-function checkRow(a,b,w,obs,bedReq){
-  const bd=bedOfPoint(a[0],a[1]);
-  if(!bd||!pip(b[0],b[1],bd.pts)||(bedReq&&bd!==bedReq))return {ok:false,msg:'花壇の外です'};
-  const P=bd.pts,n=P.length;
-  for(let i=0;i<n;i++)if(dSS(a,b,P[i],P[(i+1)%n])<w-EPS)return {ok:false,bed:bd,msg:`花壇の縁から${fmt(w)}cm以上離してください`};
-  for(const o of obs){
-    if(o.k==='s'){if(dPS(o.x,o.y,a,b)<w+o.r-EPS)return {ok:false,bed:bd,msg:`${obsName(o)}と間隔が重なります`};}
-    else if(dSS(a,b,o.a,o.b)<w+o.w-EPS)return {ok:false,bed:bd,msg:`${obsName(o)}の条間と重なります`};
-  }
-  return {ok:true,bed:bd};
-}
-function checkItem(it,obs){const p=plantById(it.p);if(!p)return {ok:true};return it.k==='s'?checkCircle(it.x,it.y,p.seedlingSp/2,obs):checkRow([it.x1,it.y1],[it.x2,it.y2],p.rowSp/2,obs);}
+function obsName(o){const it=o.id&&itemById(o.id);const p=it&&plantById(it.p);return p?p.name:'他の植物';}
+function obsMsg(o){const n=obsName(o);return o.k==='r'?`${n}の条間と重なります`:o.k==='a'?`${n}のまき床と重なります`:`${n}と株間が重なります`;}
+const rectEdges=o=>{const a=[o.x1,o.y1],b=[o.x2,o.y1],c=[o.x2,o.y2],d=[o.x1,o.y2];return [[a,b],[b,c],[c,d],[d,a]];};
+const inRect=(x,y,o)=>x>o.x1&&x<o.x2&&y>o.y1&&y<o.y2;
+function coreDist(A,B){
+  if(A.k==='a'&&B.k!=='a')return coreDist(B,A);
+  if(A.k==='s'){if(B.k==='s')return Math.hypot(A.x-B.x,A.y-B.y);if(B.k==='r')return dPS(A.x,A.y,B.a,B.b);
+    if(inRect(A.x,A.y,B))return 0;return Math.min(...rectEdges(B).map(e=>dPS(A.x,A.y,e[0],e[1])));}
+  if(A.k==='r'){if(B.k==='s')return dPS(B.x,B.y,A.a,A.b);if(B.k==='r')return dSS(A.a,A.b,B.a,B.b);
+    if(inRect(A.a[0],A.a[1],B)||inRect(A.b[0],A.b[1],B))return 0;return Math.min(...rectEdges(B).map(e=>dSS(A.a,A.b,e[0],e[1])));}
+  if(A.x1<B.x2-EPS&&B.x1<A.x2-EPS&&A.y1<B.y2-EPS&&B.y1<A.y2-EPS)return -1;
+  return Math.min(...rectEdges(A).flatMap(e=>rectEdges(B).map(f=>dSS(e[0],e[1],f[0],f[1]))));}
+function hitsObs(s,obs){for(const o of obs){if(coreDist(s,o)<s.r+o.r-EPS)return o;}return null;}
+function nearIn(x,y,P){if(pip(x,y,P))return true;for(let i=0;i<P.length;i++)if(dPS(x,y,P[i],P[(i+1)%P.length])<0.5)return true;return false;}
+function rectInBed(o,b){const P=b.pts;const cs=[[o.x1,o.y1],[o.x2,o.y1],[o.x2,o.y2],[o.x1,o.y2]];if(!cs.every(c=>nearIn(c[0],c[1],P)))return false;
+  const sh={x1:o.x1+0.3,y1:o.y1+0.3,x2:o.x2-0.3,y2:o.y2-0.3};if(sh.x2<=sh.x1||sh.y2<=sh.y1)return false;
+  if(P.some(p=>inRect(p[0],p[1],sh)))return false;
+  for(let i=0;i<P.length;i++){const e0=P[i],e1=P[(i+1)%P.length];for(const f of rectEdges(sh))if(segX(e0,e1,f[0],f[1]))return false;}
+  return true;}
+function bedFor(s){if(s.k==='s')return bedOfPoint(s.x,s.y);
+  if(s.k==='r'){const b=bedOfPoint(s.a[0],s.a[1]);return b&&pip(s.b[0],s.b[1],b.pts)?b:null;}
+  const b=bedOfPoint((s.x1+s.x2)/2,(s.y1+s.y2)/2);return b&&rectInBed(s,b)?b:null;}
+function checkShape(s,obs,bedReq){const b=bedFor(s);
+  if(!b||(bedReq&&b!==bedReq))return {ok:false,msg:s.k==='a'?'花壇の中に収まる範囲を指定してください':'花壇の外です'};
+  if(s.r>0){const P=b.pts,n=P.length;for(let i=0;i<n;i++){const d=s.k==='s'?dPS(s.x,s.y,P[i],P[(i+1)%n]):dSS(s.a,s.b,P[i],P[(i+1)%n]);
+    if(d<s.r-EPS)return {ok:false,bed:b,msg:`花壇の縁から${fmt(s.r)}cm以上離してください`};}}
+  const o=hitsObs(s,obs);if(o)return {ok:false,bed:b,msg:obsMsg(o)};return {ok:true,bed:b};}
+const checkCircle=(x,y,r,obs,bedReq)=>checkShape({k:'s',x,y,r},obs,bedReq);
+const checkRow=(a,b,w,obs,bedReq)=>checkShape({k:'r',a,b,r:w},obs,bedReq);
+function checkItem(it,obs){const s=shapeOf(it);return s?checkShape(s,obs):{ok:true};}
 function fitRow(a,b,w,obs){
   const s0=checkCircle(a[0],a[1],w,obs);if(!s0.ok)return {ok:false,msg:s0.msg};
   const full=checkRow(a,b,w,obs);if(full.ok)return {ok:true,b,trim:false};
   let lo=0,hi=1;for(let i=0;i<22;i++){const m=(lo+hi)/2;const e=[a[0]+(b[0]-a[0])*m,a[1]+(b[1]-a[1])*m];if(checkRow(a,e,w,obs).ok)lo=m;else hi=m;}
-  const L=Math.hypot(b[0]-a[0],b[1]-a[1])*lo, f=Math.floor(L*2)/2/(Math.hypot(b[0]-a[0],b[1]-a[1])||1);
-  const e=[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f];
-  return {ok:L>=2,b:e,trim:true,msg:full.msg};
-}
+  const T=Math.hypot(b[0]-a[0],b[1]-a[1])||1,L=T*lo,f=Math.floor(L*2)/2/T;const e=[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f];
+  return {ok:L>=2,b:e,trim:true,msg:full.msg};}
 function computeConflicts(){conflicts=new Set();for(const it of items()){if(!checkItem(it,obstacles(it.id)).ok)conflicts.add(it.id);}}
 
 /* ============ 数量計算 ============ */
 function rowStats(it,p){const L=rowLen(it);const plants=Math.floor(L/p.seedSp+1e-6)+1;let points=0,seeds=0;
   if(p.sow==='点まき'){points=plants;seeds=points*(p.perPoint||0);}else{seeds=Math.ceil(L*(p.perPoint||0));}
   return {L,plants,points,seeds};}
-function tally(list){
-  const m=new Map();
+function areaStats(it,p){const w=Math.abs(it.x2-it.x1),h=Math.abs(it.y2-it.y1),m2=w*h/10000;
+  return {w,h,m2,seeds:Math.ceil(m2*(p.perPoint||0)),plants:p.seedSp>0?Math.max(1,Math.floor(w/p.seedSp))*Math.max(1,Math.floor(h/p.seedSp)):0};}
+function plantCount(it,p){return it.k==='s'?1:it.k==='r'?rowStats(it,p).plants:areaStats(it,p).plants;}
+function tally(list){const m=new Map();
   for(const it of list){const p=plantById(it.p);if(!p)continue;
-    if(!m.has(p.id))m.set(p.id,{p,sd:0,rows:0,len:0,rowPlants:0,points:0,seeds:0});
+    if(!m.has(p.id))m.set(p.id,{p,sd:0,rows:0,len:0,rowPlants:0,points:0,seeds:0,areas:0,m2:0,areaPlants:0});
     const t=m.get(p.id);
-    if(it.k==='s')t.sd++;else{const r=rowStats(it,p);t.rows++;t.len+=r.L;t.rowPlants+=r.plants;t.points+=r.points;t.seeds+=r.seeds;}}
-  return [...m.values()].sort((a,b)=>a.p.name.localeCompare(b.p.name,'ja'));
-}
-function itemBox(it,p){if(it.k==='s'){const r=p.seedlingSp/2;return {minX:it.x-r,minY:it.y-r,maxX:it.x+r,maxY:it.y+r};}const w=p.rowSp/2;return {minX:Math.min(it.x1,it.x2)-w,minY:Math.min(it.y1,it.y2)-w,maxX:Math.max(it.x1,it.x2)+w,maxY:Math.max(it.y1,it.y2)+w};}
+    if(it.k==='s')t.sd++;
+    else if(it.k==='a'){const a=areaStats(it,p);t.areas++;t.m2+=a.m2;t.seeds+=a.seeds;t.areaPlants+=a.plants;}
+    else{const r=rowStats(it,p);t.rows++;t.len+=r.L;t.rowPlants+=r.plants;t.points+=r.points;t.seeds+=r.seeds;}}
+  return [...m.values()].sort((a,b)=>a.p.name.localeCompare(b.p.name,'ja'));}
+function itemBox(it,p){if(it.k==='s'){const r=p.seedlingSp/2;return {minX:it.x-r,minY:it.y-r,maxX:it.x+r,maxY:it.y+r};}
+  if(it.k==='a')return {minX:Math.min(it.x1,it.x2),minY:Math.min(it.y1,it.y2),maxX:Math.max(it.x1,it.x2),maxY:Math.max(it.y1,it.y2)};
+  const w=p.rowSp/2;return {minX:Math.min(it.x1,it.x2)-w,minY:Math.min(it.y1,it.y2)-w,maxX:Math.max(it.x1,it.x2)+w,maxY:Math.max(it.y1,it.y2)+w};}
 const up10=v=>Math.ceil(v/10)*10;
 function materials(){
-  const sup=new Map(); let net=0,netPoles=0,netPoleLen=0; const prot=[];
-  for(const it of items()){const p=plantById(it.p);if(!p)continue;
-    if(p.support==='支柱'){const n=it.k==='s'?1:rowStats(it,p).plants;const k=p.supLen||150;sup.set(k,(sup.get(k)||0)+n);}
-    if(p.support==='ネット'){if(it.k==='r'){const L=rowLen(it);net+=L;netPoles+=Math.ceil(L/180)+1;netPoleLen=Math.max(netPoleLen,p.supLen||180);}else{const k=p.supLen||150;sup.set(k,(sup.get(k)||0)+1);}}
+  const poles=new Map(),extras=new Map(),nets=[],prot=[];
+  const addPole=(len,dia,n,why)=>{const k=`${len}|${dia}`;const e=poles.get(k)||{len,dia,n:0,why:[]};e.n+=n;if(!e.why.includes(why))e.why.push(why);poles.set(k,e);};
+  const addEx=(name,n,unit)=>{const e=extras.get(name)||{name,n:0,unit};e.n+=n;extras.set(name,e);};
+  const groups=new Map();
+  for(const it of items()){const p=plantById(it.p);if(!p)continue;const b=itemBed(it);if(!b)continue;const k=p.id+'|'+b.id;const g=groups.get(k)||{p,b,list:[]};g.list.push(it);groups.set(k,g);}
+  for(const {p,b,list} of groups.values()){
+    const n=list.reduce((a,it)=>a+plantCount(it,p),0);
+    const bx=list.reduce((a,it)=>{const x=itemBox(it,p);return {minX:Math.min(a.minX,x.minX),minY:Math.min(a.minY,x.minY),maxX:Math.max(a.maxX,x.maxX),maxY:Math.max(a.maxY,x.maxY)};},{minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity});
+    const Lx=bx.maxX-bx.minX,Ly=bx.maxY-bx.minY,L=Math.max(Lx,Ly),W=Math.min(Lx,Ly),m2=L*W/10000;
+    const rowSum=list.filter(i=>i.k==='r').reduce((a,i)=>a+rowLen(i),0);const run=rowSum>0?rowSum:Math.max(L-(list.some(i=>i.k==='s')?p.seedlingSp:0),0)+(list.some(i=>i.k==='s')?p.seedlingSp:0);
+    const where=`${b.name}・${p.name}`;const M=p.mat,P=p.prot;
+    if(M.pole.on&&n>0){const st=M.pole.style,per=M.pole.per||STYLE_PER[st];
+      if(st==='ピラミッド型'){const sets=Math.ceil(n/4);addPole(M.pole.len,M.pole.dia,Math.max(sets*4,n*per),where);addEx('結束ひも（ピラミッドの頂部）',sets,'組');}
+      else addPole(M.pole.len,M.pole.dia,n*per,where);
+      if(st==='合掌型'){const yoko=Math.max(1,Math.ceil(run/Math.max(M.pole.len-20,40)));addPole(M.pole.len,M.pole.dia,yoko+2,where+'（横棒・筋交い）');addEx('クロスジョイント・結束（合掌の交差部）',n+yoko*2,'か所');}
+      if(st==='あんどん型')addEx('あんどん用リング',n*3,'個');
+      addEx('誘引クリップ・ひも',n*3,'か所');}
+    if(M.net.on&&n>0){const need=Math.max(run,50);const sheets=Math.ceil(need/M.net.len);nets.push({w:M.net.w,len:M.net.len,mesh:M.net.mesh,sheets,need,where});
+      if(!M.pole.on){addPole([150,180,210,240,270,300].find(v=>v>=M.net.w+30)||300,16,Math.ceil(need/180)+1,where+'（ネット張り用）');}
+      addEx('ネット固定クリップ・ひも',Math.ceil(need/30)*2,'か所');}
+    if(P.fleece.on){const sw=W+40,sl=L+40,k=Math.ceil(sw/P.fleece.w);prot.push({type:'不織布（べたがけ）',where,spec:`幅${P.fleece.w}cm × 長さ${up10(sl)}cm${k>1?` × ${k}枚（並べて張る）`:''}`,sub:`固定ピン ${Math.ceil(2*(sl+sw)/50)}本`});}
+    if(P.tunnel.on){const arc=Math.PI*W/2,hl=[120,150,180,210,240,270,300].find(v=>v>=arc+60)||up10(arc+60),cw=[135,180,210,230,270].find(v=>v>=arc+60)||up10(arc+60),hoops=Math.ceil(L/50)+1;
+      prot.push({type:`トンネル（${P.tunnel.cover}）`,where,spec:`トンネル支柱 ${hl}cm × ${hoops}本（50cm間隔）`,sub:`${P.tunnel.cover} 幅${cw}cm × 長さ${up10(L+W+60)}cm／押さえ ${hoops}か所`});}
+    if(P.mulch.on){const need=W+30,k=Math.ceil(need/P.mulch.w);prot.push({type:`マルチ（${P.mulch.type}）`,where,spec:`幅${P.mulch.w}cm × 長さ${up10(L+60)}cm${k>1?` × ${k}列`:''}`,sub:`押さえピン ${(Math.ceil(2*L/50)+4)*k}本`});}
+    if(P.straw.on)prot.push({type:'稲藁（敷き藁）',where,spec:`${fmt(m2*P.straw.kg)}kg`,sub:`${fmt(m2)}㎡ × ${P.straw.kg}kg/㎡`,kg:m2*P.straw.kg,kind:'straw'});
+    if(P.husk.on)prot.push({type:'籾殻',where,spec:`${fmt(m2*P.husk.kg)}kg`,sub:`${fmt(m2)}㎡ × ${P.husk.kg}kg/㎡`,kg:m2*P.husk.kg,kind:'husk'});
   }
-  for(const b of S.beds){
-    const groups={};
-    for(const it of items()){const p=plantById(it.p);if(!p||p.protect==='なし')continue;if(itemBed(it)!==b)continue;
-      const bx=itemBox(it,p);const g=groups[p.protect]||(groups[p.protect]={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity,names:new Set()});
-      g.minX=Math.min(g.minX,bx.minX);g.minY=Math.min(g.minY,bx.minY);g.maxX=Math.max(g.maxX,bx.maxX);g.maxY=Math.max(g.maxY,bx.maxY);g.names.add(p.name);}
-    for(const k in groups){const g=groups[k];const a=g.maxX-g.minX,c=g.maxY-g.minY;const L=Math.max(a,c),W=Math.min(a,c);
-      let spec={};
-      if(k==='不織布')spec={sheet:`${up10(L+40)} × ${up10(W+40)}cm`,pins:Math.ceil(2*(L+W+80)/50),area:(L+40)*(W+40)};
-      if(k==='トンネル'){const arc=Math.PI*W/2;spec={hoops:Math.ceil(L/50)+1,hoopLen:up10(arc+60),sheet:`${up10(L+W+60)} × ${up10(arc+60)}cm`,pins:Math.ceil(L/50)+1};}
-      if(k==='マルチ'){const need=W+30;spec={roll:need<=95?'幅95cm':need<=135?'幅135cm':`幅${up10(need)}cm以上`,len:up10(L+60),pins:Math.ceil(2*L/50)+4};}
-      prot.push({bed:b,type:k,L,W,names:[...g.names],spec});}
-  }
-  return {sup,net,netPoles,netPoleLen,prot};
-}
+  return {poles:[...poles.values()].sort((a,b)=>a.len-b.len||a.dia-b.dia),extras:[...extras.values()],nets,prot};}
+function matSummary(p){const a=[],M=p.mat,P=p.prot;
+  if(M.pole.on)a.push(`支柱 ${M.pole.style} ${M.pole.len}cm`);if(M.net.on)a.push(`ネット 幅${M.net.w}`);
+  if(P.fleece.on)a.push('不織布');if(P.tunnel.on)a.push('トンネル');if(P.mulch.on)a.push('マルチ');if(P.straw.on)a.push('稲藁');if(P.husk.on)a.push('籾殻');return a.join('・');}
 
 /* ============ キャンバス ============ */
 const cv=$('#cv'), cwrap=$('#cwrap'); const ctx=cv.getContext('2d');
@@ -444,49 +492,102 @@ function hexA(hex,a){const h=hex.replace('#','');const n=parseInt(h.length===3?h
 function drawScene(c,W,H,v,opt){
   const C=colors,s=v.s,X=x=>x*s+v.ox,Y=y=>y*s+v.oy;
   c.fillStyle=C.paper;c.fillRect(0,0,W,H);
-  // 罫線
   const g=S.settings.grid,major=g<=10?50:100;
   const x0=-v.ox/s,x1=(W-v.ox)/s,y0=-v.oy/s,y1=(H-v.oy)/s;
   const lines=(step,col)=>{if(step*s<5)return;c.strokeStyle=col;c.lineWidth=1;c.beginPath();
     for(let x=Math.floor(x0/step)*step;x<=x1;x+=step){const px=Math.round(X(x))+.5;c.moveTo(px,0);c.lineTo(px,H);}
     for(let y=Math.floor(y0/step)*step;y<=y1;y+=step){const py=Math.round(Y(y))+.5;c.moveTo(0,py);c.lineTo(W,py);}c.stroke();};
   lines(g,C.grid);lines(major,C.gridMajor);
-  // 目盛（m）
   if(major*s>=28&&!opt.export){c.font='10px -apple-system,sans-serif';c.fillStyle=C.sub;c.textBaseline='top';c.textAlign='left';
     for(let x=Math.ceil(x0/major)*major;x<=x1;x+=major)c.fillText(`${fmt(x/100)}m`,X(x)+3,3);
     c.textBaseline='bottom';for(let y=Math.ceil(y0/major)*major;y<=y1;y+=major)c.fillText(`${fmt(y/100)}m`,3,Y(y)-2);}
-  // 花壇
-  const fade=wmode==='bed'&&bs&&!opt.thumb;
+  const bedMode=wmode==='bed'&&!opt.thumb&&!opt.export;
   for(const b of S.beds){
-    c.globalAlpha=fade&&b.id!==bs.bedId?.35:1;
     c.beginPath();b.pts.forEach((p,i)=>i?c.lineTo(X(p[0]),Y(p[1])):c.moveTo(X(p[0]),Y(p[1])));c.closePath();
     c.fillStyle=hexA(C.soil.startsWith('#')?C.soil:'#d8c29c',.85);c.fill();
-    const isSel=sel&&sel.t==='bed'&&sel.id===b.id;
-    c.strokeStyle=isSel?C.leaf:C.soilEdge;c.lineWidth=isSel?3:2;c.stroke();
-  }
+    const isSel=!opt.export&&sel&&sel.t==='bed'&&sel.id===b.id;
+    c.strokeStyle=isSel?C.leaf:C.soilEdge;c.lineWidth=isSel?3.5:2;c.stroke();}
+  if(bedMode)c.globalAlpha=.3;
+  for(const it of items()){const p=plantById(it.p);if(!p)continue;const bad=!bedMode&&conflicts.has(it.id),isSel=!opt.export&&sel&&sel.t==='item'&&sel.id===it.id;
+    if(it.k==='r')drawRow(c,v,it,p,bad,isSel);else if(it.k==='a')drawArea(c,v,it,p,bad,isSel);else drawSeedling(c,v,it,p,bad,isSel);}
   c.globalAlpha=1;
-  // 植物
-  const its=items();if(fade)c.globalAlpha=.35;
-  for(const it of its){const p=plantById(it.p);if(!p)continue;const bad=conflicts.has(it.id),isSel=sel&&sel.t==='item'&&sel.id===it.id;
-    if(it.k==='r')drawRow(c,v,it,p,bad,isSel);else drawSeedling(c,v,it,p,bad,isSel);}
-  c.globalAlpha=1;
-  // 花壇ラベル
-  if(S.settings.showLabels&&!noLabels)for(const b of S.beds){if(fade&&b.id!==bs.bedId)continue;
+  if(S.settings.showLabels&&!noLabels)for(const b of S.beds){
     const bb=bbox(b.pts);pill(c,b.name,X(bb.minX),Y(bb.minY)-12,{align:'left',bold:true,size:12});
     if(b.shape==='circle'){pill(c,`直径 ${fmt(b.c.r*2)}cm`,X(b.c.x),Y(b.c.y+b.c.r)+12,{color:C.pen});}
     else{const sg=Math.sign(sArea(b.pts))||1;
-      for(let i=0;i<b.pts.length;i++){const a=b.pts[i],e=b.pts[(i+1)%b.pts.length];const L=Math.hypot(e[0]-a[0],e[1]-a[1]);if(L*s<34)continue;
+      for(let i=0;i<b.pts.length;i++){const a=b.pts[i],e=b.pts[(i+1)%b.pts.length];const L=Math.hypot(e[0]-a[0],e[1]-a[1]);if(L*s<34||L<15)continue;
         const nx=(e[1]-a[1])/L*sg,ny=-(e[0]-a[0])/L*sg;const mx=X((a[0]+e[0])/2)-nx*14,my=Y((a[1]+e[1])/2)-ny*14;
-        pill(c,`${fmt(L)}cm`,mx,my,{color:C.pen,size:11});}}
-  }
-  // 選択寸法
+        pill(c,`${fmt(L)}cm`,mx,my,{color:C.pen,size:11});}}}
   if(!opt.export&&S.settings.showDims&&sel)drawSelDims(c,v);
-  // 頂点ハンドル
-  if(!opt.export&&wmode==='bed'&&bs&&bs.bedId&&tool==='select'){const b=bedById(bs.bedId);if(b)handles(b).forEach(h=>{c.beginPath();c.arc(X(h.x),Y(h.y),h.mid?6:9,0,Math.PI*2);c.fillStyle=h.mid?C.panel:C.leaf;c.fill();c.strokeStyle=C.leaf;c.lineWidth=2;c.stroke();});}
+  if(bedMode&&sel&&sel.t==='bed'&&tool==='select'){const b=bedById(sel.id);if(b)handles(b).forEach(h=>{c.beginPath();c.arc(X(h.x),Y(h.y),h.mid?6:9,0,Math.PI*2);c.fillStyle=h.mid?C.panel:C.leaf;c.fill();c.strokeStyle=C.leaf;c.lineWidth=2;c.stroke();});}
   if(!opt.export)drawPreview(c,v);
-  // スケールバー
   if(!opt.thumb){drawScale(c,W,H,s,opt);drawCompass(c,W,opt);}
 }
+function drawArea(c,v,it,p,bad,isSel){const s=v.s;const x=Math.min(it.x1,it.x2)*s+v.ox,y=Math.min(it.y1,it.y2)*s+v.oy,w=Math.abs(it.x2-it.x1)*s,h=Math.abs(it.y2-it.y1)*s;
+  c.fillStyle=hexA(p.color,.22);c.fillRect(x,y,w,h);
+  let st=Math.max(7,Math.min(16,4*s));while((w/st)*(h/st)>3000)st*=1.5;
+  c.fillStyle=hexA(p.color,.9);let r=0;for(let yy=y+st/2;yy<y+h;yy+=st,r++)for(let xx=x+st/2+(r%2?st/2:0);xx<x+w;xx+=st)c.fillRect(xx-1.2,yy-1.2,2.4,2.4);
+  c.lineWidth=isSel?3:1.5;c.strokeStyle=bad?colors.danger:isSel?colors.pen:p.color;if(bad)c.setLineDash([5,4]);c.strokeRect(x,y,w,h);c.setLineDash([]);
+  if(S.settings.showLabels&&!noLabels&&w>60&&h>22)pill(c,`${p.name} ${fmt(w*h/s/s/10000)}㎡`,x+w/2,y+h/2,{size:10,bgAlpha:.8});}
+function drawSelDims(c,v){
+  const C=colors;
+  if(sel.t==='item'){const it=itemById(sel.id);if(!it)return;const b=itemBed(it);if(!b)return;const bb=bbox(b.pts);const p=plantById(it.p);
+    const pts=it.k==='s'?[[it.x,it.y]]:it.k==='a'?[[Math.min(it.x1,it.x2),Math.min(it.y1,it.y2)]]:[[it.x1,it.y1],[it.x2,it.y2]];
+    pts.forEach((q,i)=>{dimLine(c,v,[bb.minX,q[1]],q,`${i?'終点 ':''}左から${fmt(q[0]-bb.minX)}`,C.pen);dimLine(c,v,[q[0],bb.minY],q,`上から${fmt(q[1]-bb.minY)}`,C.pen);});
+    if(it.k==='r'){const L=rowLen(it);const s=v.s;pill(c,`長さ ${fmt(L)}cm / 株間${p.seedSp} 条間${p.rowSp}`,((it.x1+it.x2)/2)*s+v.ox,((it.y1+it.y2)/2)*s+v.oy+Math.max(p.rowSp/2*s,10)+12,{color:C.pen,size:11});}
+    else if(it.k==='a'){const a=areaStats(it,p);pill(c,`${fmt(a.w)} × ${fmt(a.h)}cm（${fmt(a.m2)}㎡）`,((it.x1+it.x2)/2)*v.s+v.ox,Math.max(it.y1,it.y2)*v.s+v.oy+14,{color:C.pen,size:11});}
+    else pill(c,`株間 ${p.seedlingSp}cm`,it.x*v.s+v.ox,(it.y+p.seedlingSp/2)*v.s+v.oy+12,{color:C.pen,size:11});
+  } else if(sel.t==='bed'){const b=bedById(sel.id);if(!b)return;const bb=bbox(b.pts);const off=34/v.s;
+    dimLine(c,v,[bb.minX,bb.minY-off],[bb.maxX,bb.minY-off],`幅 ${fmt(bb.w)}cm`,C.pen);
+    dimLine(c,v,[bb.minX-off,bb.minY],[bb.minX-off,bb.maxY],`奥行 ${fmt(bb.h)}cm`,C.pen);
+    if(wmode==='bed'){const others=S.beds.filter(x=>x!==b);let best=null;for(const o of others){for(let i=0;i<b.pts.length;i++)for(let j=0;j<o.pts.length;j++){const d=dSS(b.pts[i],b.pts[(i+1)%b.pts.length],o.pts[j],o.pts[(j+1)%o.pts.length]);if(!best||d<best.d)best={d,o};}}
+      if(best)pill(c,`最も近い花壇（${best.o.name}）まで ${fmt(best.d)}cm`,(bb.minX+bb.maxX)/2*v.s+v.ox,bb.maxY*v.s+v.oy+18,{color:C.pen,size:11,bold:true});}}
+}
+function drawPreview(c,v){
+  const C=colors,s=v.s,X=x=>x*s+v.ox,Y=y=>y*s+v.oy;
+  if(tool==='poly'&&polyPts.length){c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.beginPath();polyPts.forEach((p,i)=>i?c.lineTo(X(p[0]),Y(p[1])):c.moveTo(X(p[0]),Y(p[1])));
+    if(action&&action.kind==='poly')c.lineTo(X(action.p[0]),Y(action.p[1]));c.stroke();c.setLineDash([]);
+    polyPts.forEach((p,i)=>{c.beginPath();c.arc(X(p[0]),Y(p[1]),i?5:9,0,Math.PI*2);c.fillStyle=i?C.leaf:C.panel;c.fill();c.strokeStyle=C.leaf;c.stroke();});
+    for(let i=1;i<polyPts.length;i++){const a=polyPts[i-1],b=polyPts[i];pill(c,`${fmt(Math.hypot(b[0]-a[0],b[1]-a[1]))}cm`,X((a[0]+b[0])/2),Y((a[1]+b[1])/2)-12,{color:C.pen,size:11});}}
+  if(!action){if(measure)drawMeasure(c,v,measure);return;}
+  const A=action;
+  if(A.kind==='poly'){pill(c,`(${fmt(A.p[0])}, ${fmt(A.p[1])})`,X(A.p[0]),Y(A.p[1])-22,{color:C.pen,size:11});}
+  if(A.kind==='rect'){const P=rectPts(A.a[0],A.a[1],A.b[0],A.b[1]);const bb=bbox(P);c.fillStyle=hexA('#d8c29c',.5);c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.beginPath();c.rect(X(bb.minX),Y(bb.minY),bb.w*s,bb.h*s);c.fill();c.stroke();c.setLineDash([]);
+    pill(c,`${fmt(bb.w)} × ${fmt(bb.h)}cm`,X(bb.minX+bb.w/2),Y(bb.minY)-14,{color:C.pen,bold:true});}
+  if(A.kind==='circle'){const r=Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1]);c.beginPath();c.arc(X(A.a[0]),Y(A.a[1]),r*s,0,Math.PI*2);c.fillStyle=hexA('#d8c29c',.5);c.fill();c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.stroke();c.setLineDash([]);
+    pill(c,`直径 ${fmt(r*2)}cm`,X(A.a[0]),Y(A.a[1]),{color:C.pen,bold:true});}
+  const dimsFrom=q=>{const b=bedOfPoint(q[0],q[1]);if(b){const bb=bbox(b.pts);dimLine(c,v,[bb.minX,q[1]],q,`左から${fmt(q[0]-bb.minX)}`,C.pen);dimLine(c,v,[q[0],bb.minY],q,`上から${fmt(q[1]-bb.minY)}`,C.pen);}};
+  if(A.kind==='seed'){const p=plantById(active.pid);if(p){const r=p.seedlingSp/2;c.beginPath();c.arc(X(A.p[0]),Y(A.p[1]),r*s,0,Math.PI*2);c.fillStyle=hexA(A.ok?p.color:'#c23b3b',.3);c.fill();c.strokeStyle=A.ok?p.color:C.danger;c.lineWidth=2;c.setLineDash([5,4]);c.stroke();c.setLineDash([]);
+    dimsFrom(A.p);if(!A.ok)pill(c,A.msg,X(A.p[0]),Y(A.p[1])-r*s-16,{color:C.danger,size:12,bold:true});}}
+  if(A.kind==='area'){const p=plantById(active.pid);if(p){const x1=Math.min(A.a[0],A.b[0]),y1=Math.min(A.a[1],A.b[1]),w=Math.abs(A.b[0]-A.a[0]),h=Math.abs(A.b[1]-A.a[1]);
+    c.fillStyle=hexA(A.ok?p.color:'#c23b3b',.28);c.fillRect(X(x1),Y(y1),w*s,h*s);c.strokeStyle=A.ok?p.color:C.danger;c.lineWidth=2;c.setLineDash([5,4]);c.strokeRect(X(x1),Y(y1),w*s,h*s);c.setLineDash([]);
+    const m2=w*h/10000;pill(c,A.ok?`${fmt(w)}×${fmt(h)}cm・${fmt(m2)}㎡・種${Math.ceil(m2*p.perPoint)}粒`:(A.msg||''),X(x1+w/2),Y(y1)-16,{color:A.ok?C.pen:C.danger,bold:true});dimsFrom([x1,y1]);}}
+  if(A.kind==='row'){const p=plantById(active.pid);if(p){const w=p.rowSp/2*s;c.lineCap='round';
+    const e=A.fit&&A.fit.ok?A.fit.b:A.b;
+    if(A.fit&&A.fit.trim){c.beginPath();c.moveTo(X(e[0]),Y(e[1]));c.lineTo(X(A.b[0]),Y(A.b[1]));c.strokeStyle=hexA('#c23b3b',.25);c.lineWidth=w*2;c.stroke();}
+    c.beginPath();c.moveTo(X(A.a[0]),Y(A.a[1]));c.lineTo(X(e[0]),Y(e[1]));c.strokeStyle=hexA(A.fit&&A.fit.ok?p.color:'#c23b3b',.3);c.lineWidth=w*2;c.stroke();
+    c.lineWidth=2;c.strokeStyle=A.fit&&A.fit.ok?p.color:C.danger;c.stroke();c.lineCap='butt';
+    const L=Math.hypot(e[0]-A.a[0],e[1]-A.a[1]);
+    if(A.fit&&A.fit.ok){const n=Math.floor(L/p.seedSp+1e-6)+1;pill(c,`${fmt(L)}cm・${n}株${A.fit.trim?'（間隔確保のため短縮）':''}`,X(e[0]),Y(e[1])-w-16,{color:C.pen,bold:true});}
+    else pill(c,A.fit?A.fit.msg||'置けません':'',X(A.a[0]),Y(A.a[1])-w-16,{color:C.danger,bold:true});
+    dimsFrom(A.a);}}
+  if(A.kind==='moveItem'&&!A.valid&&A.msg){const it=A.it;const q=it.k==='s'?[it.x,it.y]:[it.x1,it.y1];pill(c,A.msg,X(q[0]),Y(q[1])-28,{color:C.danger,bold:true});}
+  if(A.kind==='measure')drawMeasure(c,v,{a:A.a,b:A.b});
+}
+const COMPASS={dx:44,y:86};
+function drawCompass(c,W,opt){const x=W-COMPASS.dx,y=opt.export?44:COMPASS.y;const n=northOf();
+  c.save();c.translate(x,y);c.fillStyle=colors.panel;c.globalAlpha=.9;c.beginPath();c.arc(0,0,30,0,Math.PI*2);c.fill();c.globalAlpha=1;c.strokeStyle=colors.line;c.lineWidth=1;c.stroke();
+  c.rotate(n*Math.PI/180);
+  c.beginPath();c.moveTo(0,-20);c.lineTo(6,0);c.lineTo(0,-3);c.lineTo(-6,0);c.closePath();c.fillStyle=colors.danger;c.fill();
+  c.beginPath();c.moveTo(0,20);c.lineTo(6,0);c.lineTo(0,3);c.lineTo(-6,0);c.closePath();c.fillStyle=colors.sub;c.fill();
+  c.font='700 10px -apple-system,sans-serif';c.textAlign='center';c.textBaseline='middle';
+  [['北',0,-25,colors.danger],['東',25,0,colors.ink],['南',0,25,colors.ink],['西',-25,0,colors.ink]].forEach(([t,tx,ty,col])=>{c.save();c.translate(tx,ty);c.rotate(-n*Math.PI/180);c.fillStyle=col;c.fillText(t,0,0);c.restore();});
+  c.restore();}
+function hitItem(w){const tol=14/V.s;const its=items();for(let i=its.length-1;i>=0;i--){const it=its[i],p=plantById(it.p);if(!p)continue;
+  if(it.k==='s'){if(Math.hypot(w.x-it.x,w.y-it.y)<=Math.max(p.seedlingSp/2,tol))return it;}
+  else if(it.k==='a'){if(w.x>=Math.min(it.x1,it.x2)-tol/2&&w.x<=Math.max(it.x1,it.x2)+tol/2&&w.y>=Math.min(it.y1,it.y2)-tol/2&&w.y<=Math.max(it.y1,it.y2)+tol/2)return it;}
+  else if(dPS(w.x,w.y,[it.x1,it.y1],[it.x2,it.y2])<=Math.max(p.rowSp/2,tol))return it;}return null;}
+
 function drawSeedling(c,v,it,p,bad,isSel){
   const s=v.s,x=it.x*s+v.ox,y=it.y*s+v.oy,r=p.seedlingSp/2*s;
   c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fillStyle=hexA(p.color,.28);c.fill();
@@ -512,45 +613,6 @@ function dimLine(c,v,a,b,text,col){
   const nx=-(by-ay)/L*5,ny=(bx-ax)/L*5;c.beginPath();c.moveTo(ax-nx,ay-ny);c.lineTo(ax+nx,ay+ny);c.moveTo(bx-nx,by-ny);c.lineTo(bx+nx,by+ny);c.stroke();
   pill(c,text,(ax+bx)/2,(ay+by)/2,{color:col,size:11,bold:true});
 }
-function drawSelDims(c,v){
-  const C=colors;
-  if(sel.t==='item'){const it=itemById(sel.id);if(!it)return;const b=itemBed(it);if(!b)return;const bb=bbox(b.pts);
-    const pts=it.k==='s'?[[it.x,it.y]]:[[it.x1,it.y1],[it.x2,it.y2]];
-    pts.forEach((q,i)=>{dimLine(c,v,[bb.minX,q[1]],q,`${i?'終点 ':''}左から${fmt(q[0]-bb.minX)}`,C.pen);dimLine(c,v,[q[0],bb.minY],q,`上から${fmt(q[1]-bb.minY)}`,C.pen);});
-    if(it.k==='r'){const p=plantById(it.p);const L=rowLen(it);const s=v.s;pill(c,`長さ ${fmt(L)}cm / 株間${p.seedSp} 条間${p.rowSp}`,((it.x1+it.x2)/2)*s+v.ox,((it.y1+it.y2)/2)*s+v.oy+Math.max(p.rowSp/2*s,10)+12,{color:C.pen,size:11});}
-    else{const p=plantById(it.p);pill(c,`株間 ${p.seedlingSp}cm`,it.x*v.s+v.ox,(it.y+p.seedlingSp/2)*v.s+v.oy+12,{color:C.pen,size:11});}
-  } else if(sel.t==='bed'){const b=bedById(sel.id);if(!b)return;const bb=bbox(b.pts);const off=34/v.s;
-    dimLine(c,v,[bb.minX,bb.minY-off],[bb.maxX,bb.minY-off],`幅 ${fmt(bb.w)}cm`,C.pen);
-    dimLine(c,v,[bb.minX-off,bb.minY],[bb.minX-off,bb.maxY],`奥行 ${fmt(bb.h)}cm`,C.pen);}
-}
-function drawPreview(c,v){
-  const C=colors,s=v.s,X=x=>x*s+v.ox,Y=y=>y*s+v.oy;
-  if(tool==='poly'&&polyPts.length){c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.beginPath();polyPts.forEach((p,i)=>i?c.lineTo(X(p[0]),Y(p[1])):c.moveTo(X(p[0]),Y(p[1])));
-    if(action&&action.kind==='poly')c.lineTo(X(action.p[0]),Y(action.p[1]));c.stroke();c.setLineDash([]);
-    polyPts.forEach((p,i)=>{c.beginPath();c.arc(X(p[0]),Y(p[1]),i?5:9,0,Math.PI*2);c.fillStyle=i?C.leaf:C.panel;c.fill();c.strokeStyle=C.leaf;c.stroke();});
-    for(let i=1;i<polyPts.length;i++){const a=polyPts[i-1],b=polyPts[i];pill(c,`${fmt(Math.hypot(b[0]-a[0],b[1]-a[1]))}cm`,X((a[0]+b[0])/2),Y((a[1]+b[1])/2)-12,{color:C.pen,size:11});}}
-  if(!action){if(measure)drawMeasure(c,v,measure);return;}
-  const A=action;
-  if(A.kind==='poly'){pill(c,`(${fmt(A.p[0])}, ${fmt(A.p[1])})`,X(A.p[0]),Y(A.p[1])-22,{color:C.pen,size:11});}
-  if(A.kind==='rect'){const P=rectPts(A.a[0],A.a[1],A.b[0],A.b[1]);const bb=bbox(P);c.fillStyle=hexA('#d8c29c',.5);c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.beginPath();c.rect(X(bb.minX),Y(bb.minY),bb.w*s,bb.h*s);c.fill();c.stroke();c.setLineDash([]);
-    pill(c,`${fmt(bb.w)} × ${fmt(bb.h)}cm`,X(bb.minX+bb.w/2),Y(bb.minY)-14,{color:C.pen,bold:true});}
-  if(A.kind==='circle'){const r=Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1]);c.beginPath();c.arc(X(A.a[0]),Y(A.a[1]),r*s,0,Math.PI*2);c.fillStyle=hexA('#d8c29c',.5);c.fill();c.strokeStyle=C.leaf;c.lineWidth=2;c.setLineDash([6,4]);c.stroke();c.setLineDash([]);
-    pill(c,`直径 ${fmt(r*2)}cm`,X(A.a[0]),Y(A.a[1]),{color:C.pen,bold:true});}
-  if(A.kind==='seed'){const p=plantById(active.pid);if(p){const r=p.seedlingSp/2;c.beginPath();c.arc(X(A.p[0]),Y(A.p[1]),r*s,0,Math.PI*2);c.fillStyle=hexA(A.ok?p.color:'#c23b3b',.3);c.fill();c.strokeStyle=A.ok?p.color:C.danger;c.lineWidth=2;c.setLineDash([5,4]);c.stroke();c.setLineDash([]);
-    const b=bedOfPoint(A.p[0],A.p[1]);if(b){const bb=bbox(b.pts);dimLine(c,v,[bb.minX,A.p[1]],A.p,`左から${fmt(A.p[0]-bb.minX)}`,C.pen);dimLine(c,v,[A.p[0],bb.minY],A.p,`上から${fmt(A.p[1]-bb.minY)}`,C.pen);}
-    if(!A.ok)pill(c,A.msg,X(A.p[0]),Y(A.p[1])-r*s-16,{color:C.danger,size:12,bold:true});}}
-  if(A.kind==='row'){const p=plantById(active.pid);if(p){const w=p.rowSp/2*s;c.lineCap='round';
-    const e=A.fit&&A.fit.ok?A.fit.b:A.b;
-    if(A.fit&&A.fit.trim){c.beginPath();c.moveTo(X(e[0]),Y(e[1]));c.lineTo(X(A.b[0]),Y(A.b[1]));c.strokeStyle=hexA('#c23b3b',.25);c.lineWidth=w*2;c.stroke();}
-    c.beginPath();c.moveTo(X(A.a[0]),Y(A.a[1]));c.lineTo(X(e[0]),Y(e[1]));c.strokeStyle=hexA(A.fit&&A.fit.ok?p.color:'#c23b3b',.3);c.lineWidth=w*2;c.stroke();
-    c.lineWidth=2;c.strokeStyle=A.fit&&A.fit.ok?p.color:C.danger;c.stroke();c.lineCap='butt';
-    const L=Math.hypot(e[0]-A.a[0],e[1]-A.a[1]);
-    if(A.fit&&A.fit.ok){const n=Math.floor(L/p.seedSp+1e-6)+1;pill(c,`${fmt(L)}cm・${n}株${A.fit.trim?'（間隔確保のため短縮）':''}`,X(e[0]),Y(e[1])-w-16,{color:C.pen,bold:true});}
-    else pill(c,A.fit?A.fit.msg||'置けません':'',X(A.a[0]),Y(A.a[1])-w-16,{color:C.danger,bold:true});
-    const b=bedOfPoint(A.a[0],A.a[1]);if(b){const bb=bbox(b.pts);dimLine(c,v,[bb.minX,A.a[1]],A.a,`左から${fmt(A.a[0]-bb.minX)}`,C.pen);dimLine(c,v,[A.a[0],bb.minY],A.a,`上から${fmt(A.a[1]-bb.minY)}`,C.pen);}}}
-  if(A.kind==='moveItem'&&!A.valid&&A.msg){const it=A.it;const q=it.k==='s'?[it.x,it.y]:[it.x1,it.y1];pill(c,A.msg,X(q[0]),Y(q[1])-28,{color:C.danger,bold:true});}
-  if(A.kind==='measure')drawMeasure(c,v,{a:A.a,b:A.b});
-}
 function drawMeasure(c,v,m){const L=Math.hypot(m.b[0]-m.a[0],m.b[1]-m.a[1]);if(L<0.5)return;dimLine(c,v,m.a,m.b,`${fmt(L)}cm`,colors.danger);
   const s=v.s;[m.a,m.b].forEach(q=>{c.beginPath();c.arc(q[0]*s+v.ox,q[1]*s+v.oy,4,0,Math.PI*2);c.fillStyle=colors.danger;c.fill();});}
 function drawScale(c,W,H,s,opt){
@@ -561,10 +623,6 @@ function drawScale(c,W,H,s,opt){
   c.font='600 12px -apple-system,sans-serif';c.textAlign='left';c.textBaseline='alphabetic';c.fillText(L>=100?`${L/100}m`:`${L}cm`,x+w+4>x+Math.max(w,150)-30?x:x+w+6,y-9);
   c.font='11px -apple-system,sans-serif';c.fillStyle=colors.sub;c.fillText(`1マス = ${S.settings.grid}cm　太線 = ${S.settings.grid<=10?50:100}cm`,x,y-20);
 }
-function drawCompass(c,W,opt){const x=W-34,y=opt.export?34:78;c.save();c.translate(x,y);c.rotate(S.settings.north*Math.PI/180);
-  c.beginPath();c.moveTo(0,-18);c.lineTo(7,8);c.lineTo(0,3);c.lineTo(-7,8);c.closePath();c.fillStyle=colors.danger;c.fill();
-  c.font='700 11px -apple-system,sans-serif';c.fillStyle=colors.ink;c.textAlign='center';c.textBaseline='bottom';c.fillText('北',0,-19);c.restore();}
-
 /* ============ ヒット判定 ============ */
 function handles(b){
   if(b.shape==='circle')return [{x:b.c.x+b.c.r,y:b.c.y,i:0}];
@@ -573,9 +631,6 @@ function handles(b){
   return h;
 }
 function hitHandle(b,sp){let best=null,bd=22;for(const h of handles(b)){const d=Math.hypot(h.x*V.s+V.ox-sp.x,h.y*V.s+V.oy-sp.y);if(d<bd){bd=d;best=h;}}return best;}
-function hitItem(w){const tol=14/V.s;const its=items();for(let i=its.length-1;i>=0;i--){const it=its[i],p=plantById(it.p);if(!p)continue;
-  if(it.k==='s'){if(Math.hypot(w.x-it.x,w.y-it.y)<=Math.max(p.seedlingSp/2,tol))return it;}
-  else if(dPS(w.x,w.y,[it.x1,it.y1],[it.x2,it.y2])<=Math.max(p.rowSp/2,tol))return it;}return null;}
 function hitBed(w){return bedOfPoint(w.x,w.y);}
 
 /* ============ 入力 ============ */
@@ -584,7 +639,6 @@ const snapV=v=>{const st=S.settings.snap;return st>0?Math.round(v/st)*st:Math.ro
 const snapP=w=>[snapV(w.x),snapV(w.y)];
 function evPos(e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
 const ptrs=new Map();let pinch=null,action=null,afterPinch=false;
-
 cv.addEventListener('pointerdown',e=>{
   e.preventDefault();try{cv.setPointerCapture(e.pointerId);}catch(_){}
   ptrs.set(e.pointerId,evPos(e));
@@ -594,35 +648,40 @@ cv.addEventListener('pointerdown',e=>{
 cv.addEventListener('pointermove',e=>{
   if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,evPos(e));
   if(pinch&&ptrs.size>=2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y)||1;const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
-    const ns=clamp(pinch.s*d/pinch.d,0.15,40);const wx=(pinch.m.x-pinch.ox)/pinch.s,wy=(pinch.m.y-pinch.oy)/pinch.s;V.s=ns;V.ox=m.x-wx*ns;V.oy=m.y-wy*ns;render();return;}
+    const ns=clamp(pinch.s*d/pinch.d,0.1,40);const wx=(pinch.m.x-pinch.ox)/pinch.s,wy=(pinch.m.y-pinch.oy)/pinch.s;V.s=ns;V.ox=m.x-wx*ns;V.oy=m.y-wy*ns;render();return;}
   if(action&&!afterPinch)moveAction(evPos(e));
 });
 function ptrEnd(e){if(!ptrs.has(e.pointerId))return;const p=evPos(e);ptrs.delete(e.pointerId);
   if(pinch){if(ptrs.size<2)pinch=null;return;}
   if(action&&!afterPinch)endAction(p,e.type==='pointercancel');}
 cv.addEventListener('pointerup',ptrEnd);cv.addEventListener('pointercancel',ptrEnd);
-cv.addEventListener('wheel',e=>{e.preventDefault();const p=evPos(e);const f=Math.exp(-e.deltaY*0.0015);const ns=clamp(V.s*f,0.15,40);const wx=(p.x-V.ox)/V.s,wy=(p.y-V.oy)/V.s;V.s=ns;V.ox=p.x-wx*ns;V.oy=p.y-wy*ns;render();},{passive:false});
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=evPos(e);const f=Math.exp(-e.deltaY*0.0015);const ns=clamp(V.s*f,0.1,40);const wx=(p.x-V.ox)/V.s,wy=(p.y-V.oy)/V.s;V.s=ns;V.ox=p.x-wx*ns;V.oy=p.y-wy*ns;render();},{passive:false});
 ['gesturestart','gesturechange'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 
 function needPlant(m){const p=plantById(active.pid);if(!p||active.m!==m){toast(m==='s'?'植物タブで苗を置く植物の「苗」を選んでください':'植物タブで播種する植物の「播種」を選んでください');openPanel('plants');return null;}return p;}
+const activeIsBroadcast=()=>{const p=plantById(active.pid);return !!(p&&active.m==='r'&&p.sow==='ばらまき');};
 function bedMoveAction(base,b,w){const inBed=[];cur.plans.forEach(pl=>pl.items.forEach(i=>{if(itemBed(i)===b)inBed.push({i,o:{...i}});}));
   return {...base,kind:'moveBed',bed:b,pts0:b.pts.map(p=>[...p]),c0:b.c?{...b.c}:null,inBed,w0:w,snap:snapshot()};}
+function areaCheck(a,b){const x1=Math.min(a[0],b[0]),y1=Math.min(a[1],b[1]),x2=Math.max(a[0],b[0]),y2=Math.max(a[1],b[1]);
+  if(x2-x1<5||y2-y1<5)return {ok:false,msg:'5cm以上の範囲をドラッグしてください'};return checkShape({k:'a',x1,y1,x2,y2,r:0},obstacles());}
 function startAction(sp){
   const w=toW(sp);const base={start:sp,moved:false};
+  if(wmode!=='view'&&Math.hypot(sp.x-(CW-COMPASS.dx),sp.y-COMPASS.y)<30){action={...base,kind:'compass'};return;}
   if(wmode==='view'){const it=hitItem(w),b=it?null:hitBed(w);action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:it?{t:'item',id:it.id}:b?{t:'bed',id:b.id}:null};return;}
   switch(tool){
     case 'select':{
-      if(wmode==='bed'){const b=bs.bedId&&bedById(bs.bedId);
-        if(b){const h=hitHandle(b,sp);if(h){action={...base,kind:'vertex',bed:b,h,snap:snapshot()};return;}
-          if(pip(w.x,w.y,b.pts)){action=bedMoveAction(base,b,w);return;}}
-        action={...base,kind:'pan',ox:V.ox,oy:V.oy};return;}
+      if(wmode==='bed'){const sb=sel&&sel.t==='bed'&&bedById(sel.id);
+        if(sb){const h=hitHandle(sb,sp);if(h){action={...base,kind:'vertex',bed:sb,h,snap:snapshot()};return;}}
+        const b=hitBed(w);if(b){select({t:'bed',id:b.id});action=bedMoveAction(base,b,w);return;}
+        action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:null};return;}
       const it=hitItem(w);if(it){select({t:'item',id:it.id});action={...base,kind:'moveItem',it,orig:{...it},w0:w,valid:true,snap:snapshot()};return;}
-      const b=hitBed(w);if(b){select({t:'bed',id:b.id});action=bedMoveAction(base,b,w);return;}
-      action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:null};return;}
+      const b=hitBed(w);action={...base,kind:'pan',ox:V.ox,oy:V.oy,tapSel:b?{t:'bed',id:b.id}:null};return;}
     case 'rect':case 'circle':{const q=snapP(w);action={...base,kind:tool,a:q,b:q};render();return;}
     case 'poly':{action={...base,kind:'poly',p:snapP(w)};render();return;}
     case 'seedling':{const p=needPlant('s');if(!p)return;const q=snapP(w);const r=checkCircle(q[0],q[1],p.seedlingSp/2,obstacles());action={...base,kind:'seed',p:q,ok:r.ok,msg:r.msg};render();return;}
-    case 'row':{const p=needPlant('r');if(!p)return;const q=snapP(w);action={...base,kind:'row',a:q,b:q,fit:null};render();return;}
+    case 'row':{const p=needPlant('r');if(!p)return;const q=snapP(w);
+      if(p.sow==='ばらまき'){action={...base,kind:'area',a:q,b:q,ok:false,msg:''};render();return;}
+      action={...base,kind:'row',a:q,b:q,fit:null};render();return;}
     case 'measure':{const q=snapP(w);action={...base,kind:'measure',a:q,b:q};measure=null;render();return;}
     default:action={...base,kind:'tap'};
   }
@@ -636,15 +695,16 @@ function moveAction(sp){
       if(it.k==='s'){it.x=snapV(o.x+dx);it.y=snapV(o.y+dy);}else{const nx=snapV(o.x1+dx)-o.x1,ny=snapV(o.y1+dy)-o.y1;it.x1=o.x1+nx;it.y1=o.y1+ny;it.x2=o.x2+nx;it.y2=o.y2+ny;}
       const r=checkItem(it,obstacles(it.id));A.valid=r.ok;A.msg=r.msg;A.dirty=true;computeConflicts();break;}
     case 'moveBed':{if(!A.moved)return;const dx=snapV(w.x-A.w0.x),dy=snapV(w.y-A.w0.y);A.bed.pts=A.pts0.map(p=>[p[0]+dx,p[1]+dy]);if(A.c0)A.bed.c={x:A.c0.x+dx,y:A.c0.y+dy,r:A.c0.r};
-      A.inBed.forEach(({i,o})=>{if(i.k==='s'){i.x=o.x+dx;i.y=o.y+dy;}else{i.x1=o.x1+dx;i.y1=o.y1+dy;i.x2=o.x2+dx;i.y2=o.y2+dy;}});A.dirty=true;computeConflicts();break;}
+      A.inBed.forEach(({i,o})=>{if(i.k==='s'){i.x=o.x+dx;i.y=o.y+dy;}else{i.x1=o.x1+dx;i.y1=o.y1+dy;i.x2=o.x2+dx;i.y2=o.y2+dy;}});A.dirty=true;break;}
     case 'vertex':{const b=A.bed,q=snapP(w);A.dirty=true;
       if(b.shape==='circle'){const r=Math.max(5,snapV(Math.hypot(q[0]-b.c.x,q[1]-b.c.y)));b.c.r=r;b.pts=circPts(b.c.x,b.c.y,r);}
       else if(b.shape==='rect'){const opp=A.opp||(A.opp=b.pts[(A.h.i+2)%4].slice());b.pts=rectPts(opp[0],opp[1],q[0],q[1]);}
       else{if(A.h.mid&&!A.inserted){b.pts.splice(A.h.i+1,0,q);A.h={...A.h,i:A.h.i+1,mid:false};A.inserted=true;}b.pts[A.h.i]=q;}
-      computeConflicts();updateChip();break;}
+      updateChip();break;}
     case 'rect':case 'circle':A.b=snapP(w);break;
     case 'poly':A.p=snapP(w);break;
     case 'seed':{const p=plantById(active.pid);A.p=snapP(w);const r=checkCircle(A.p[0],A.p[1],p.seedlingSp/2,obstacles());A.ok=r.ok;A.msg=r.msg;break;}
+    case 'area':{A.b=snapP(w);const r=areaCheck(A.a,A.b);A.ok=r.ok;A.msg=r.msg;break;}
     case 'row':{const p=plantById(active.pid);let b=[w.x,w.y];let dx=b[0]-A.a[0],dy=b[1]-A.a[1];let L=Math.hypot(dx,dy),ang=Math.atan2(dy,dx);
       if(S.settings.angleSnap){const st=Math.PI/4,sn=Math.round(ang/st)*st;if(Math.abs(sn-ang)<0.12)ang=sn;}
       L=S.settings.snap>0?Math.round(L/S.settings.snap)*S.settings.snap:L;b=[A.a[0]+Math.cos(ang)*L,A.a[1]+Math.sin(ang)*L].map(v=>Math.round(v*10)/10);
@@ -657,46 +717,47 @@ function endAction(sp,cancelled){
   const A=action;action=null;if(!A)return;if(cancelled){if(A.snap&&A.dirty){restore(A.snap);computeConflicts();}render();return;}
   const w=toW(sp);
   switch(A.kind){
-    case 'pan':if(!A.moved&&wmode!=='bed'){select(A.tapSel||null);}break;
+    case 'compass':openNorth();break;
+    case 'pan':if(!A.moved)select(A.tapSel||null);break;
     case 'moveItem':if(A.moved){if(!A.valid){restore(A.snap);toast(A.msg||'ここには置けません');}else{pushUndo(A.snap);}changed();}break;
     case 'moveBed':if(A.moved){pushUndo(A.snap);changed();}break;
     case 'vertex':if(A.dirty){if(Math.abs(sArea(A.bed.pts))<50){restore(A.snap);toast('花壇が小さすぎます');}else pushUndo(A.snap);changed();}break;
-    case 'rect':{const P=rectPts(A.a[0],A.a[1],A.b[0],A.b[1]);const bb=bbox(P);if(bb.w<10||bb.h<10){toast('10cm以上の大きさでドラッグしてください');break;}
-      setSessionBed('rect',P,null);break;}
-    case 'circle':{const r=Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1]);if(r<5){toast('中心から外側へドラッグしてください');break;}
-      setSessionBed('circle',circPts(A.a[0],A.a[1],r),{x:A.a[0],y:A.a[1],r});break;}
+    case 'rect':{const P=rectPts(A.a[0],A.a[1],A.b[0],A.b[1]);const bb=bbox(P);if(bb.w<10||bb.h<10){toast('10cm以上の大きさでドラッグしてください');break;}addSessionBed('rect',P,null);break;}
+    case 'circle':{const r=Math.hypot(A.b[0]-A.a[0],A.b[1]-A.a[1]);if(r<5){toast('中心から外側へドラッグしてください');break;}addSessionBed('circle',circPts(A.a[0],A.a[1],r),{x:A.a[0],y:A.a[1],r});break;}
     case 'poly':{const q=A.p;if(polyPts.length>=3){const f=polyPts[0];if(Math.hypot((f[0]-q[0])*V.s,(f[1]-q[1])*V.s)<24){finishPoly();break;}}
       const l=polyPts[polyPts.length-1];if(!l||l[0]!==q[0]||l[1]!==q[1])polyPts.push(q);updateHint();break;}
     case 'seed':{const p=plantById(active.pid);if(!A.ok){toast(A.msg||'ここには置けません');break;}pushUndo();items().push({id:uid(),k:'s',p:p.id,x:A.p[0],y:A.p[1]});seasonWarn(p,'s');changed();break;}
+    case 'area':{const p=plantById(active.pid);if(!A.moved){toast('ドラッグでばらまく範囲を指定してください');break;}if(!A.ok){toast(A.msg||'ここには指定できません');break;}
+      pushUndo();items().push({id:uid(),k:'a',p:p.id,x1:Math.min(A.a[0],A.b[0]),y1:Math.min(A.a[1],A.b[1]),x2:Math.max(A.a[0],A.b[0]),y2:Math.max(A.a[1],A.b[1])});seasonWarn(p,'r');changed();break;}
     case 'row':{const p=plantById(active.pid);if(!A.fit||!A.fit.ok){toast(A.moved?((A.fit&&A.fit.msg)||'ここには引けません'):'ドラッグして条（すじ）を引いてください');break;}
       const e=A.fit.b;if(Math.hypot(e[0]-A.a[0],e[1]-A.a[1])<5){toast('5cm以上の長さが必要です');break;}
       pushUndo();items().push({id:uid(),k:'r',p:p.id,x1:A.a[0],y1:A.a[1],x2:Math.round(e[0]*10)/10,y2:Math.round(e[1]*10)/10});seasonWarn(p,'r');changed();break;}
     case 'measure':measure={a:A.a,b:A.b};break;
     case 'tap':{if(A.moved)break;
       if(tool==='fill'){const b=hitBed(w);if(!b){toast('花壇をタップしてください');break;}autoFill(b);}
-      if(tool==='erase'){const it=hitItem(w);if(it){pushUndo();plan().items=items().filter(i=>i!==it);if(sel&&sel.id===it.id)sel=null;changed();break;}
-        const b=hitBed(w);if(b)askConfirm(`${b.name}を削除しますか？中の植物（全プラン）も削除されます。`,()=>deleteBed(b));}
+      if(tool==='erase'){const it=hitItem(w);if(it){pushUndo();plan().items=items().filter(i=>i!==it);if(sel&&sel.id===it.id)sel=null;changed();}else toast('植物をタップすると削除します（花壇は花壇編集で削除）');}
       break;}
   }
   render();
 }
 function cancelAction(){if(action){if(action.snap&&action.dirty){restore(action.snap);computeConflicts();}action=null;render();}}
-/* 花壇編集中の花壇の形を置き換える（なければ作る） */
-function setSessionBed(shape,pts,c){pushUndo();let b=bs.bedId&&bedById(bs.bedId);
-  if(b){b.shape=shape;b.pts=pts;if(c)b.c=c;else delete b.c;}
-  else{b={id:uid(),name:nextBedName(),shape,pts};if(c)b.c=c;cur.beds.push(b);bs.bedId=b.id;}
-  sel={t:'bed',id:b.id};polyPts=[];setTool('select');changed();toast(`${sizeText(b)} の形にしました。頂点をドラッグで微調整できます`);}
+function addSessionBed(shape,pts,c){pushUndo();const b={id:uid(),name:nextBedName(),shape,pts};if(c)b.c=c;cur.beds.push(b);bs.created.push(b.id);
+  sel={t:'bed',id:b.id};polyPts=[];setTool('select');changed();toast(`${b.name}（${sizeText(b)}）を追加しました。続けて描くと花壇が増えます`);}
+function replaceShape(b,shape,pts,c){pushUndo();b.shape=shape;b.pts=pts;if(c)b.c=c;else delete b.c;changed();}
 function finishPoly(){if(polyPts.length<3){toast('3点以上必要です');return;}const P=polyPts.slice();if(Math.abs(sArea(P))<50){toast('花壇が小さすぎます');return;}
-  setSessionBed('poly',P,null);updateHint();}
+  addSessionBed('poly',P,null);updateHint();}
 function nextBedName(p){p=p||cur;const used=new Set(p.beds.map(b=>b.name));for(let i=0;i<26;i++){const n='花壇'+String.fromCharCode(65+i);if(!used.has(n))return n;}return '花壇'+(p.beds.length+1);}
 function seasonWarn(p,m){const mo=S.settings.month;const ok=m==='s'?p.plantM.includes(mo):p.seedM.includes(mo);if(!ok)toast(`${p.name}の${m==='s'?'植え付け':'種まき'}適期は${fmtMonths(m==='s'?p.plantM:p.seedM)}です`);}
 function deleteBed(b){pushUndo();cur.plans.forEach(pl=>{pl.items=pl.items.filter(i=>itemBed(i)!==b);});cur.beds=cur.beds.filter(x=>x!==b);if(sel&&sel.id===b.id)sel=null;changed();}
 function sizeText(b){const bb=bbox(b.pts);return b.shape==='circle'?`直径${fmt(b.c.r*2)}cm`:b.shape==='rect'?`${fmt(bb.w)}×${fmt(bb.h)}cm`:`外形${fmt(bb.w)}×${fmt(bb.h)}cm`;}
 
 /* ============ 自動配置 ============ */
+function sBox(o){if(o.k==='s')return {minX:o.x-o.r,minY:o.y-o.r,maxX:o.x+o.r,maxY:o.y+o.r};if(o.k==='a')return {minX:o.x1,minY:o.y1,maxX:o.x2,maxY:o.y2};
+  return {minX:Math.min(o.a[0],o.b[0])-o.r,minY:Math.min(o.a[1],o.b[1])-o.r,maxX:Math.max(o.a[0],o.b[0])+o.r,maxY:Math.max(o.a[1],o.b[1])+o.r};}
 function autoFill(b){
   const p=plantById(active.pid);if(!p||!active.m){toast('植物タブで植物と「苗」または「播種」を選んでください');openPanel('plants');return;}
-  const bb=bbox(b.pts);const base=obstacles().filter(o=>{const m=o.k==='s'?o.r:o.w+Math.max(Math.abs(o.a[0]-o.b[0]),Math.abs(o.a[1]-o.b[1]));const x=o.k==='s'?o.x:o.a[0],y=o.k==='s'?o.y:o.a[1];return x>bb.minX-m-120&&x<bb.maxX+m+120&&y>bb.minY-m-120&&y<bb.maxY+m+120;});
+  if(active.m==='r'&&p.sow==='ばらまき'){toast('ばらまきは「播種」ツールで範囲をドラッグして指定してください');return;}
+  const bb=bbox(b.pts);const base=obstacles().filter(o=>{const x=sBox(o);return x.maxX>bb.minX-120&&x.minX<bb.maxX+120&&x.maxY>bb.minY-120&&x.minY<bb.maxY+120;});
   const t0=performance.now();let added=[];
   if(active.m==='s'){
     const s=p.seedlingSp,r=s/2,hex=S.settings.pattern==='hex',dy=hex?s*Math.sqrt(3)/2:s;
@@ -715,7 +776,7 @@ function autoFill(b){
       for(let c=across[0]+w+k*step/3;c<=across[1]-w+EPS;c+=step){let runS=null,last=null;const cc=Math.round(c*10)/10;
         const flush=()=>{if(runS!==null&&last-runS>=Math.max(10,p.seedSp)){let a=P(runS,cc),e=P(last,cc);let ok=checkRow(a,e,w,obs,b).ok,tries=0;
             while(!ok&&tries<6){runS+=0.5;last-=0.5;a=P(runS,cc);e=P(last,cc);ok=last>runS&&checkRow(a,e,w,obs,b).ok;tries++;}
-            if(ok){rows.push([a,e]);obs.push({k:'r',a,b:e,w});tot+=last-runS;}}runS=null;last=null;};
+            if(ok){rows.push([a,e]);obs.push({k:'r',a,b:e,r:w});tot+=last-runS;}}runS=null;last=null;};
         for(let u=Math.ceil(along[0]);u<=along[1];u+=1){const q=P(u,cc);if(checkCircle(q[0],q[1],w,obs,b).ok){if(runS===null)runS=u;last=u;}else flush();}
         flush();}
       if(tot>best.len)best={len:tot,rows};}
@@ -739,24 +800,21 @@ function select(s){sel=s;if(s&&!$('#panel').classList.contains('hidden')&&(tab==
 function changed(){if(cur){cur.updated=Date.now();computeConflicts();}save();if(screen==='work'){render();refreshPanel();updateChip();}else if(screen==='page'&&pageRefresh)pageRefresh();}
 function openPanel(t){$('#panel').classList.remove('hidden');tab=t;refreshPanel();resize();}
 function setTool(t){tool=t;if(t!=='poly')polyPts=[];if(t!=='measure')measure=null;$$('#tb [data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));updateHint();render();}
-const HINTS={plant:{select:'植物や花壇をタップで選択・ドラッグで移動。空き地をドラッグで画面移動、2本指でズーム',seedling:'押して位置を決め、離すと苗を置く。円＝株間の範囲',row:'ドラッグで播種の条を引く。帯の幅＝条間',
-  fill:'花壇をタップ → 選択中の植物を空きに自動配置',measure:'ドラッグで距離を測る',erase:'植物や花壇をタップで削除'},
-  bed:{select:'頂点●をドラッグで変形、辺の中点○で頂点を追加、花壇の内側をドラッグで移動',rect:'ドラッグで四角い花壇を描く（描き直すと形が置き換わります）',circle:'中心から外へドラッグで円形花壇',
-  poly:'タップで頂点を追加（押したまま位置調整）。最初の点をタップで完成',measure:'ドラッグで距離を測る'},
+const HINTS={plant:{select:'植物をタップで選択・ドラッグで移動。空き地をドラッグで画面移動、2本指でズーム（花壇は「花壇編集」で動かせます）',seedling:'押して位置を決め、離すと苗を置く。円＝株間の範囲',row:'ドラッグで播種の条を引く。帯の幅＝条間',
+  area:'ドラッグでばらまく範囲（長方形）を指定。面積から種の量を計算します',fill:'花壇をタップ → 選択中の植物を空きに自動配置',measure:'ドラッグで距離を測る',erase:'植物をタップで削除'},
+  bed:{select:'花壇をタップで選択・ドラッグで移動。選んだ花壇の頂点●で変形、辺の中点○で頂点を追加',rect:'ドラッグで四角い花壇を追加',circle:'中心から外へドラッグで円形花壇を追加',
+  poly:'タップで頂点を追加（押したまま位置調整）。最初の点をタップで完成',measure:'ドラッグで距離を測る（花壇どうしの通路幅など）'},
   view:{select:'確認モード：タップで詳細を表示、ドラッグで画面移動、2本指でズーム'}};
-function updateHint(){const h=$('#hint');const hs=HINTS[wmode]||{};let x=`<span class="txt">${hs[tool]||hs.select||''}</span>`;
+function updateHint(){const h=$('#hint');const hs=HINTS[wmode]||{};const key=wmode==='plant'&&tool==='row'&&activeIsBroadcast()?'area':tool;let x=`<span class="txt">${hs[key]||hs.select||''}</span>`;
   if(tool==='poly'&&polyPts.length)x+=`<button class="btn sm" id="pUndo">1点戻す</button><button class="btn sm" id="pCancel">中止</button><button class="btn sm pri" id="pDone" ${polyPts.length<3?'disabled':''}>完成</button>`;
   h.innerHTML=x;const q=id=>$('#'+id);if(q('pDone')){q('pDone').onclick=finishPoly;q('pUndo').onclick=()=>{polyPts.pop();updateHint();render();};q('pCancel').onclick=()=>{polyPts=[];updateHint();render();};}
   updateChip();}
 function updateChip(){const c=$('#chip');
-  if(wmode==='bed'){const b=bs&&bs.bedId&&bedById(bs.bedId);c.style.display='';c.innerHTML=b?`<b>${esc(b.name)}</b> ${sizeText(b)}・${fmt(bedArea(b)/10000)}㎡`:`<span class="muted">四角・円・多角形で形を描いてください</span>`;return;}
+  if(wmode==='bed'){const b=sel&&sel.t==='bed'&&bedById(sel.id);c.style.display='';c.innerHTML=b?`<b>${esc(b.name)}</b> ${sizeText(b)}・${fmt(bedArea(b)/10000)}㎡`:`<span class="muted">花壇 ${S.beds.length}個　四角・円・多角形で追加できます</span>`;return;}
   if(wmode==='view'){c.style.display='none';return;}
   c.style.display='';const p=plantById(active.pid);
   if(!p||!active.m){c.innerHTML=`<span class="muted">植物タブで植物を選ぶと配置できます</span>`;return;}
-  c.innerHTML=active.m==='s'?`<span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b> 苗・株間${p.seedlingSp}cm`:`<span class="ln" style="background:${p.color}"></span><b>${esc(p.name)}</b> 播種・条間${p.rowSp}／株間${p.seedSp}cm`;}
-function showScreen(id){screen=id;$$('.screen').forEach(s=>s.classList.toggle('show',s.id==='scr-'+id));}
-const fmtDate=t=>{const d=new Date(t);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;};
-const monthOpts=m=>Array.from({length:12},(_,i)=>`<option value="${i+1}" ${m===i+1?'selected':''}>${i+1}月</option>`).join('');
+  c.innerHTML=active.m==='s'?`<span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b> 苗・株間${p.seedlingSp}cm`:p.sow==='ばらまき'?`<span class="ln" style="background:${p.color};height:12px"></span><b>${esc(p.name)}</b> ばらまき・${p.perPoint}粒/㎡`:`<span class="ln" style="background:${p.color}"></span><b>${esc(p.name)}</b> ${p.sow}・条間${p.rowSp}／株間${p.seedSp}cm`;}
 
 /* ============ ツールバー ============ */
 const tb=(t,ic,l)=>`<button class="tbtn" data-tool="${t}"><span class="ic">${ic}</span>${l}</button>`;
@@ -765,9 +823,9 @@ const SEP='<div class="sep"></div>';
 function renderToolbar(){let h='';
   const sels=`<select class="tsel" id="month" aria-label="作付け月">${monthOpts(S.settings.month)}</select><select class="tsel" id="plan" aria-label="プラン">${cur.plans.map((p,i)=>`<option value="${i}" ${i===cur.activePlan?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`;
   if(wmode==='plant')h=cmd('home','⌂','ホーム')+`<button class="ttl" data-cmd="rename" title="名前を変更">${esc(cur.name)} ✎</button>`+SEP+tb('select','✋','選択')+tb('seedling','●','苗')+tb('row','━','播種')+tb('fill','✦','自動配置')+SEP+
-    tb('measure','📏','計測')+tb('erase','⌫','削除')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+cmd('addBed','＋','花壇追加')+SEP+sels+cmd('panel','☰','パネル');
-  if(wmode==='bed')h=cmd('bedBack','←','戻る')+`<span class="ttl">花壇の形を編集</span>`+SEP+tb('select','✋','変形・移動')+tb('rect','▭','四角')+tb('circle','◯','円')+tb('poly','⬠','多角形')+SEP+
-    tb('measure','📏','計測')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+cmd('panel','☰','パネル')+SEP+cmd('bedOk','→','決定','go');
+    tb('measure','📏','計測')+tb('erase','⌫','削除')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+SEP+cmd('bedEdit','▭','花壇編集')+cmd('addBed','＋','花壇追加')+cmd('north','🧭','方位')+SEP+sels+cmd('panel','☰','パネル');
+  if(wmode==='bed')h=cmd('bedBack','←','戻る')+`<span class="ttl">花壇の配置・形</span>`+SEP+tb('select','✋','選択・移動')+tb('rect','▭','四角')+tb('circle','◯','円')+tb('poly','⬠','多角形')+SEP+
+    tb('measure','📏','計測')+cmd('undo','↶','戻す')+cmd('redo','↷','やり直す')+cmd('fit','⤢','全体')+cmd('north','🧭','方位')+cmd('panel','☰','パネル')+SEP+cmd('bedOk','→','決定','go');
   if(wmode==='view')h=cmd('toRecords','←','記録へ')+`<span class="ttl">${esc(cur.name)}（確認）</span>`+SEP+cmd('fit','⤢','全体')+sels+cmd('panel','☰','パネル')+SEP+cmd('viewEdit','✎','つづきから','go')+cmd('viewCopy','⧉','コピーして編集');
   $('#tb').innerHTML=h;
   const m=$('#month'),pl=$('#plan');
@@ -782,6 +840,8 @@ $('#tb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(c==='home'){saveNow();showHome();toast('保存しました');}
   if(c==='rename')promptText('プロジェクト名','名前',cur.name,v=>{cur.name=v;changed();renderToolbar();});
   if(c==='addBed')showBedPick({from:'add'});
+  if(c==='bedEdit')openWork('bed',{from:'edit',fit:false});
+  if(c==='north')openNorth();
   if(c==='bedOk')bedDecide();
   if(c==='bedBack')bedCancel();
   if(c==='toRecords')showRecords();
@@ -789,7 +849,19 @@ $('#tb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(c==='viewCopy'){copyProject(cur);openWork('plant');toast('コピーを作成しました');}
 });
 function fitView(){const pts=S.beds.flatMap(b=>b.pts);if(!pts.length){V.s=2.5;V.ox=60;V.oy=80;render();return;}
-  const bb=bbox(pts),pad=70;V.s=clamp(Math.min((CW-pad*2)/(bb.w||100),(CH-pad*2-40)/(bb.h||100)),0.15,40);V.ox=(CW-bb.w*V.s)/2-bb.minX*V.s;V.oy=(CH-bb.h*V.s)/2-bb.minY*V.s+10;render();}
+  const bb=bbox(pts),pad=70;V.s=clamp(Math.min((CW-pad*2)/(bb.w||100),(CH-pad*2-40)/(bb.h||100)),0.1,40);V.ox=(CW-bb.w*V.s)/2-bb.minX*V.s;V.oy=(CH-bb.h*V.s)/2-bb.minY*V.s+10;render();}
+const DIRS=[[0,'上が北'],[45,'右上が北'],[90,'右が北'],[135,'右下が北'],[180,'下が北'],[225,'左下が北'],[270,'左が北'],[315,'左上が北']];
+function northSelect(val,attr){return `<select class="inp" ${attr}>${DIRS.map(([d,l])=>`<option value="${d}" ${val===d?'selected':''}>${l}</option>`).join('')}${DIRS.some(d=>d[0]===val)?'':`<option value="${val}" selected>${val}°</option>`}</select>`;}
+function openNorth(){const n=northOf();
+  openModal('方位の設定',`<p class="muted">図面の上方向に対して、北がどちらにあるかを設定します。右上の方位マークに反映されます。</p>
+  <div class="grid2">${DIRS.map(([d,l])=>`<button class="btn ${d===n?'pri':''}" data-nd="${d}">${l}</button>`).join('')}</div>
+  <div class="fld" style="margin-top:12px"><label>角度で指定（北の向き・時計回り 0〜359°）</label><div class="row"><input class="inp" id="nDeg" type="number" inputmode="numeric" min="0" max="359" value="${n}" style="flex:1"><button class="btn pri" id="nOk">決定</button></div></div>`);
+  const set=d=>{d=((Math.round(+d)%360)+360)%360;if(!cur)return;pushUndo();cur.north=d;closeModal();changed();toast(`方位を${d}°にしました`);};
+  $$('#mb [data-nd]').forEach(b=>b.onclick=()=>set(+b.dataset.nd));$('#nOk').onclick=()=>set($('#nDeg').value);}
+
+function showScreen(id){screen=id;$$('.screen').forEach(s=>s.classList.toggle('show',s.id==='scr-'+id));}
+const fmtDate=t=>{const d=new Date(t);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;};
+const monthOpts=m=>Array.from({length:12},(_,i)=>`<option value="${i+1}" ${m===i+1?'selected':''}>${i+1}月</option>`).join('');
 
 /* ============ 画面：ホーム ============ */
 function showHome(){cur=null;pending=null;bs=null;sel=null;showScreen('home');
@@ -841,56 +913,84 @@ function showRecords(){const list=[...DB.projects].sort((a,b)=>b.updated-a.updat
 function copyProject(p){const np=JSON.parse(JSON.stringify(p));np.id=uid();np.name=p.name+'のコピー';np.created=np.updated=Date.now();np.plans.forEach(pl=>{pl.id=uid();pl.items.forEach(i=>i.id=uid());});DB.projects.push(np);cur=np;saveNow();return np;}
 
 /* ---- 新規作成 ---- */
-function showNewProject(){const d=new Date();const nm=pending?pending.name:`ポタジェ ${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+/* ---- 新規作成 ---- */
+function showNewProject(){const d=new Date();const nm=pending?pending.name:`ポタジェ ${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;const nn=pending?pending.north:(S.settings.north||0);
   showPage('新規作成',`<div class="steps"><b>① 名前</b>→ ② 花壇の形 → ③ 植え付け</div><div class="box" style="max-width:560px">
   <div class="fld"><label>プロジェクト名</label><input class="inp" id="npName" value="${esc(nm)}"></div>
   <div class="fld"><label>作付けを考える月（植物の候補がこの月で絞り込まれます）</label><select class="inp" id="npMonth">${monthOpts(S.settings.month)}</select></div>
+  <div class="fld"><label>方位（図面の上方向に対して北はどちら？あとから変更できます）</label>${northSelect(nn,'id="npNorth"')}</div>
   <button class="btn pri full" id="npNext">次へ：花壇の形を選ぶ →</button></div>`,{back:()=>{pending=null;showHome();}});
-  $('#npNext').onclick=()=>{const name=$('#npName').value.trim()||nm;S.settings.month=+$('#npMonth').value;save();if(pending)pending.name=name;else pending=newProject(name);cur=pending;showBedPick({from:'new'});};}
+  $('#npNext').onclick=()=>{const name=$('#npName').value.trim()||nm;S.settings.month=+$('#npMonth').value;S.settings.north=+$('#npNorth').value;save();
+    if(pending)pending.name=name;else pending=newProject(name);pending.north=+$('#npNorth').value;cur=pending;showBedPick({from:'new'});};}
 
-/* ---- 花壇の形を選ぶ ---- */
-function shapeSvg(pts){const bb=bbox(pts),W=150,H=100,s=Math.min((W-20)/(bb.w||1),(H-20)/(bb.h||1));const ox=(W-bb.w*s)/2-bb.minX*s,oy=(H-bb.h*s)/2-bb.minY*s;
-  return `<svg class="th" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${pts.map((p,i)=>(i?'L':'M')+(p[0]*s+ox).toFixed(1)+' '+(p[1]*s+oy).toFixed(1)).join('')}Z" fill="var(--soil)" stroke="var(--soilEdge)" stroke-width="2"/></svg>`;}
+/* ---- 花壇の形を選ぶ（花壇一覧） ---- */
+function shapeSvg(beds){const pts=beds.flatMap(b=>b.pts);const bb=bbox(pts),W=150,H=100,s=Math.min((W-16)/(bb.w||1),(H-16)/(bb.h||1));const ox=(W-bb.w*s)/2-bb.minX*s,oy=(H-bb.h*s)/2-bb.minY*s;
+  return `<svg class="th" viewBox="0 0 ${W} ${H}" aria-hidden="true">${beds.map(b=>`<path d="${b.pts.map((p,i)=>(i?'L':'M')+(p[0]*s+ox).toFixed(1)+' '+(p[1]*s+oy).toFixed(1)).join('')}Z" fill="var(--soil)" stroke="var(--soilEdge)" stroke-width="1.5"/>`).join('')}</svg>`;}
+function typeSize(t){if(t.beds.length===1){const b=t.beds[0];return `${sizeText(b)}・${fmt(bedArea(b)/10000)}㎡`;}const bb=bbox(t.beds.flatMap(b=>b.pts));return `${t.beds.length}花壇・全体${fmt(bb.w)}×${fmt(bb.h)}cm・計${fmt(t.beds.reduce((a,b)=>a+bedArea(b),0)/10000)}㎡`;}
 function showBedPick(ctx){const isNew=ctx.from==='new';
-  const body=`${isNew?'<div class="steps">① 名前 → <b>② 花壇の形</b> → ③ 植え付け</div>':''}<p class="muted">花壇一覧から選ぶか、「新規の花壇」で形を作ります。${isNew?'':'選んだ花壇は今ある花壇の右側に置かれます。'}</p>
-  <div class="cards"><button class="card bt new" data-bt="new"><span class="pl2">＋</span>新規の花壇<span class="muted" style="font-weight:400;font-size:12px">形と寸法を自分で設定</span></button>
-  ${DB.bedTypes.map(t=>`<div class="card bt"><button class="btw" data-bt="${t.id}">${shapeSvg(t.pts)}<div class="cb"><b>${esc(t.name)}</b><div class="muted">${sizeText(t)}・${fmt(bedArea(t)/10000)}㎡</div></div></button><button class="x" data-btdel="${t.id}" aria-label="${esc(t.name)}を一覧から削除">✕</button></div>`).join('')}</div>`;
-  showPage(isNew?'花壇の形を選ぶ':'花壇を追加',body,{back:isNew?showNewProject:()=>openWork('plant',{fit:false}),refresh:()=>showBedPick(ctx)});
+  const body=`${isNew?'<div class="steps">① 名前 → <b>② 花壇の形</b> → ③ 植え付け</div>':''}<p class="muted">花壇一覧から選ぶか、「新規の花壇」で形を作ります。複数の花壇がまとまったセットも選べます。${isNew?'':'追加した花壇は花壇編集の画面で位置を調整できます。'}</p>
+  <div class="cards"><button class="card bt new" data-bt="new"><span class="pl2">＋</span>新規の花壇<span class="muted" style="font-weight:400;font-size:12px">形と寸法を自分で設定（複数可）</span></button>
+  ${DB.bedTypes.map(t=>`<div class="card bt"><button class="btw" data-bt="${t.id}">${shapeSvg(t.beds)}<div class="cb"><b>${esc(t.name)}</b>${t.beds.length>1?` <span class="tag">${t.beds.length}花壇</span>`:''}<div class="muted">${typeSize(t)}</div></div></button><button class="x" data-btdel="${t.id}" aria-label="${esc(t.name)}を一覧から削除">✕</button></div>`).join('')}</div>`;
+  showPage(isNew?'花壇の形を選ぶ':'花壇を追加',body,{back:isNew?showNewProject:()=>openWork('plant',{fit:false}),refresh:()=>showBedPick(ctx),actions:`<button class="btn sm" id="btJson">座標データから登録</button>`});
+  $('#btJson').onclick=()=>jsonBedModal(ctx);
   $('#pgBody').onclick=e=>{const d=e.target.closest('[data-btdel]');if(d){const t=DB.bedTypes.find(x=>x.id===d.dataset.btdel);askConfirm(`「${t.name}」を花壇一覧から削除しますか？（作成済みの花壇には影響しません）`,()=>{DB.bedTypes=DB.bedTypes.filter(x=>x!==t);save();showBedPick(ctx);},'削除する');return;}
     const b=e.target.closest('[data-bt]');if(!b)return;
     if(b.dataset.bt==='new'){openWork('bed',{from:ctx.from});return;}
-    useBedType(DB.bedTypes.find(x=>x.id===b.dataset.bt));};}
-function placeOffset(p){const pts=p.beds.flatMap(b=>b.pts);if(!pts.length)return {x:0,y:0};const bb=bbox(pts);return {x:bb.maxX+60,y:bb.minY};}
+    useBedType(DB.bedTypes.find(x=>x.id===b.dataset.bt),ctx);};}
+function placeOffset(p){const pts=p.beds.flatMap(b=>b.pts);if(!pts.length)return {x:0,y:0};const bb=bbox(pts);return {x:bb.maxX+100,y:bb.minY};}
 function ensureProject(){if(pending){if(!DB.projects.includes(pending))DB.projects.push(pending);cur=pending;pending=null;}return cur;}
-function useBedType(t){const p=cur;const off=placeOffset(p);const b=JSON.parse(JSON.stringify(t));const bb=bbox(b.pts);const dx=off.x-bb.minX,dy=off.y-bb.minY;
-  b.id=uid();b.name=nextBedName(p);b.pts=b.pts.map(q=>[q[0]+dx,q[1]+dy]);if(b.c){b.c.x+=dx;b.c.y+=dy;}p.beds.push(b);ensureProject();cur.updated=Date.now();saveNow();
-  openWork('plant');toast(`「${t.name}」を${b.name}として配置しました`);}
+function useBedType(t,ctx){const p=cur;const snap0=snapshot();const off=placeOffset(p);const bb=bbox(t.beds.flatMap(b=>b.pts));
+  const used=new Set(p.beds.map(b=>b.name));const ids=[];
+  moveBeds(t.beds,off.x-bb.minX,off.y-bb.minY).forEach(b=>{b.id=uid();if(!b.name||used.has(b.name))b.name=nextBedName(p);used.add(b.name);p.beds.push(b);ids.push(b.id);});
+  ensureProject();cur.updated=Date.now();saveNow();
+  if(ctx&&ctx.from==='add'){openWork('bed',{from:'addpick',created:ids,selId:ids[0],snap:snap0});toast(`「${t.name}」を追加しました。位置を調整して「決定」を押してください`);}
+  else{openWork('plant');toast(`「${t.name}」を配置しました`);}}
+/* 座標データ（JSON）から花壇を登録 */
+function parseBedJson(o){const k=/mm/i.test(o.unit||'')?0.1:/^m$/i.test(o.unit||'')?100:1;const out=[];const lab=o.bed_labels||{};
+  const mk=(name,pts)=>out.push({name,shape:'poly',pts:pts.map(p=>[+(p[0]*k).toFixed(2),+(p[1]*k).toFixed(2)])});
+  if(o.circular_bed&&o.circular_bed.center_mm){const c=o.circular_bed,r=(c.interior_radius_mm||c.interior_diameter_mm/2)*0.1,x=c.center_mm[0]*0.1,y=c.center_mm[1]*0.1;out.push({name:lab.circle?String(lab.circle).replace(/\(.*\)/,''):'円形',shape:'circle',c:{x,y,r},pts:circPts(x,y,r)});}
+  const polys=o.rectangular_beds_interior_polygons||o.polygons||null;if(polys)Object.entries(polys).forEach(([n,pts])=>mk(lab[n]||n,pts));
+  if(Array.isArray(o.beds))o.beds.forEach((b,i)=>{if(b.circle||b.center){const c=b.circle||[...b.center,b.radius];out.push({name:b.name||`花壇${i+1}`,shape:'circle',c:{x:c[0]*k,y:c[1]*k,r:c[2]*k},pts:circPts(c[0]*k,c[1]*k,c[2]*k)});}else if(b.pts||b.points)mk(b.name||`花壇${i+1}`,b.pts||b.points);});
+  return out.filter(b=>b.pts.length>=3);}
+function jsonBedModal(ctx){openModal('座標データから花壇を登録',`<p class="muted">花壇の頂点座標をまとめたJSONを読み込み、花壇一覧に登録します。単位（unit）が mm の場合は自動でcmに換算します。</p>
+  <div class="fld"><label>ファイルから</label><input class="inp" type="file" id="bjF" accept=".json,application/json,text/plain"></div><div class="fld"><label>または貼り付け</label><textarea class="inp" id="bjT"></textarea></div>
+  <div class="fld"><label>登録名</label><input class="inp" id="bjN" value="読み込んだ花壇"></div><label class="sw"><input type="checkbox" id="bjE" checked>1つずつの花壇としても登録する</label>`,
+  `<button class="btn" data-close>やめる</button><button class="btn pri" id="bjGo">登録する</button>`);
+  $('#bjF').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#bjT').value=r.result;};r.readAsText(f);};
+  $('#bjGo').onclick=()=>{let beds=[];try{beds=parseBedJson(JSON.parse($('#bjT').value));}catch(e){}if(!beds.length)return toast('花壇の座標が見つかりませんでした');
+    const name=$('#bjN').value.trim()||'読み込んだ花壇';DB.bedTypes.unshift({id:uid(),name,beds:normBeds(beds)});
+    if($('#bjE').checked)beds.forEach(b=>DB.bedTypes.push({id:uid(),name:`${name} ${b.name}`,beds:normBeds([b])}));
+    save();closeModal();showBedPick(ctx);toast(`${beds.length}個の花壇を登録しました`);};}
 
 /* ============ 作業画面 ============ */
 function openWork(mode,opts={}){wmode=mode;showScreen('work');undoS=[];redoS=[];sel=null;measure=null;polyPts=[];action=null;
-  if(mode==='bed'){bs={bedId:opts.bedId||null,from:opts.from||'edit',snap:snapshot()};if(bs.bedId)sel={t:'bed',id:bs.bedId};tool=bs.bedId?'select':'rect';tab='bed';}
+  if(mode==='bed'){bs={from:opts.from||'edit',snap:opts.snap||snapshot(),created:opts.created||[]};if(opts.selId)sel={t:'bed',id:opts.selId};tool=S.beds.length?'select':'rect';tab='bed';}
   else{bs=null;tool='select';tab=mode==='view'?'sum':'plants';}
   if(innerWidth>760)$('#panel').classList.remove('hidden');
   renderToolbar();computeConflicts();refreshPanel();updateHint();
-  requestAnimationFrame(()=>{resize();if(opts.fit!==false||mode==='bed')fitBed();});}
-function fitBed(){if(wmode==='bed'&&bs&&!bs.bedId&&!S.beds.length){V.s=clamp(Math.min(CW,CH)/300,0.5,6);const o=placeOffset(cur);V.ox=40-o.x*V.s;V.oy=60-o.y*V.s;render();return;}
-  if(wmode==='bed'&&bs&&bs.bedId){const b=bedById(bs.bedId);if(b){const bb=bbox(b.pts),pad=90;V.s=clamp(Math.min((CW-pad*2)/(bb.w||100),(CH-pad*2)/(bb.h||100)),0.15,40);V.ox=(CW-bb.w*V.s)/2-bb.minX*V.s;V.oy=(CH-bb.h*V.s)/2-bb.minY*V.s;render();return;}}
-  fitView();}
-function bedCancel(){const goBack=()=>{restore(bs.snap);const f=bs.from;bs=null;if(f==='new')showBedPick({from:'new'});else if(f==='add')showBedPick({from:'add'});else openWork('plant',{fit:false});};
-  if(undoS.length)askConfirm('編集中の花壇の形を破棄して戻りますか？',goBack,'破棄して戻る');else goBack();}
+  requestAnimationFrame(()=>{resize();if(opts.fit!==false)fitView();});}
+function bedCancel(){const goBack=()=>{restore(bs.snap);const f=bs.from;bs=null;
+    if(f==='new')showBedPick({from:'new'});else if(f==='add'||f==='addpick')showBedPick({from:'add'});else openWork('plant',{fit:false});};
+  if(undoS.length||bs.from==='addpick')askConfirm(bs.from==='addpick'?'追加した花壇を取り消して戻りますか？':'花壇の変更を破棄して戻りますか？',goBack,'破棄して戻る');else goBack();}
 function defaultTypeName(b){const bb=bbox(b.pts);return b.shape==='circle'?`円形 直径${fmt(b.c.r*2)}`:b.shape==='rect'?`長方形 ${fmt(bb.w)}×${fmt(bb.h)}`:`多角形 ${fmt(bb.w)}×${fmt(bb.h)}`;}
-function bedDecide(){const b=bs&&bs.bedId&&bedById(bs.bedId);if(!b)return toast('まず四角・円・多角形で花壇の形を描いてください');
-  const same=DB.bedTypes.some(t=>t.shape===b.shape&&JSON.stringify(normPts(t.pts))===JSON.stringify(normPts(b.pts)));
-  openModal('花壇の決定',`<div class="row" style="align-items:flex-start"><div style="width:150px">${shapeSvg(b.pts)}</div><div><b>${esc(b.name)}</b><div class="muted">${sizeText(b)}・面積${fmt(bedArea(b)/10000)}㎡</div></div></div>
-    ${same?'<p class="muted">この形はすでに花壇一覧に登録されています。</p>':`<p>この形を<b>花壇一覧に登録</b>しますか？次回から選ぶだけで使えます。</p><div class="fld"><label>登録名</label><input class="inp" id="btName" value="${esc(defaultTypeName(b))}"></div>`}`,
-    `<button class="btn" data-close>戻って編集</button>${same?'':'<button class="btn" id="bdNo">登録せずに進む</button>'}<button class="btn pri" id="bdYes">${same?'植え付けへ進む':'登録して進む'}</button>`);
-  const go=reg=>{if(reg){const t=JSON.parse(JSON.stringify(b));const bb=bbox(t.pts);t.pts=t.pts.map(q=>[q[0]-bb.minX,q[1]-bb.minY]);if(t.c){t.c.x-=bb.minX;t.c.y-=bb.minY;}t.id=uid();t.name=($('#btName').value||'').trim()||defaultTypeName(b);DB.bedTypes.push(t);}
-    closeModal();ensureProject();cur.updated=Date.now();saveNow();openWork('plant',{fit:true});toast(reg?'花壇一覧に登録しました。植物を配置していきましょう':'花壇を決定しました。植物を配置していきましょう');};
-  $('#bdYes').onclick=()=>go(!same);if($('#bdNo'))$('#bdNo').onclick=()=>go(false);}
-function normPts(P){const bb=bbox(P);return P.map(q=>[Math.round(q[0]-bb.minX),Math.round(q[1]-bb.minY)]);}
+function bedDecide(){if(!S.beds.length)return toast('まず四角・円・多角形で花壇を描いてください');
+  const created=new Set(bs.created.filter(id=>bedById(id)));const def=bs.from==='addpick'?new Set():created;
+  openModal('花壇の決定',`<div class="row" style="align-items:flex-start"><div style="width:150px">${shapeSvg(S.beds)}</div><div><b>花壇 ${S.beds.length}個</b><div class="muted">計${fmt(S.beds.reduce((a,b)=>a+bedArea(b),0)/10000)}㎡</div></div></div>
+    <h3>花壇一覧に登録しますか？</h3><p class="muted">登録すると、次回から選ぶだけで使えます。登録する花壇にチェックしてください。</p>
+    <div id="bdList">${S.beds.map(b=>`<label class="sw"><input type="checkbox" value="${b.id}" ${def.has(b.id)?'checked':''}> ${esc(b.name)}（${sizeText(b)}）${created.has(b.id)?' <span class="tag">新規</span>':''}</label>`).join('')}</div>
+    <div class="seg" id="bdMode"><button data-m="group" class="on">まとめて1つに登録</button><button data-m="each">1つずつ登録</button></div>
+    <div class="fld" id="bdNameF"><label>登録名（まとめて登録する場合）</label><input class="inp" id="btName" value="${esc(cur.name)}の花壇"></div>`,
+    `<button class="btn" data-close>戻って編集</button><button class="btn pri" id="bdGo">決定して植え付けへ</button>`);
+  let mode='group';$$('#bdMode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$('#bdMode button').forEach(x=>x.classList.toggle('on',x===b));$('#bdNameF').style.display=mode==='group'?'':'none';});
+  const upd=()=>{const ch=$$('#bdList input:checked');if(ch.length===1&&mode==='group'){const b=bedById(ch[0].value);$('#btName').value=defaultTypeName(b);}};$$('#bdList input').forEach(i=>i.onchange=upd);upd();
+  $('#bdGo').onclick=()=>{const ids=$$('#bdList input:checked').map(i=>i.value);const beds=ids.map(bedById).filter(Boolean).map(b=>{const n=JSON.parse(JSON.stringify(b));delete n.id;return n;});
+    let msg='花壇を決定しました';
+    if(beds.length){if(mode==='group'||beds.length===1){DB.bedTypes.push({id:uid(),name:($('#btName').value||'').trim()||defaultTypeName(beds[0]),beds:normBeds(beds)});}
+      else beds.forEach(b=>DB.bedTypes.push({id:uid(),name:`${b.name} ${defaultTypeName(b)}`,beds:normBeds([b])}));msg=`花壇一覧に${mode==='group'||beds.length===1?1:beds.length}件登録しました`;}
+    closeModal();ensureProject();cur.updated=Date.now();saveNow();openWork('plant',{fit:true});toast(msg+'。植物を配置していきましょう');};}
 
 /* ============ パネル ============ */
-const TABS={plant:[['plants','植物'],['sel','選択中'],['sum','集計・寸法'],['mat','資材'],['disp','表示']],view:[['sel','選択中'],['sum','集計・寸法'],['mat','資材']],bed:[['bed','花壇の設定'],['disp','表示']]};
+const TABS={plant:[['plants','植物'],['sel','選択中'],['sum','集計・寸法'],['mat','資材'],['disp','表示']],view:[['sel','選択中'],['sum','集計・寸法'],['mat','資材']],bed:[['bed','花壇'],['disp','表示']]};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;tab=b.dataset.tab;refreshPanel();});
 function refreshPanel(){if(screen!=='work'||!cur)return;updateChip();const ts=TABS[wmode];if(!ts.some(t=>t[0]===tab))tab=ts[0][0];
   $('#tabs').innerHTML=ts.map(([k,l])=>`<button data-tab="${k}" class="${k===tab?'on':''}">${l}</button>`).join('');
@@ -903,54 +1003,61 @@ function refreshPanel(){if(screen!=='work'||!cur)return;updateChip();const ts=TA
   if(tab==='plants')$('#plist').innerHTML=plantList();el.scrollTop=st;}
 function tabPlants(){const m=S.settings.month;
   return `<div class="row between"><h3 style="margin:0">${m}月に作付けできる植物</h3><label class="sw"><input type="checkbox" data-set="showAllSeasons" ${S.settings.showAllSeasons?'checked':''}>時期外も表示</label></div>
-  <p class="muted" style="margin:4px 0 8px">「苗」は円（株間）、「播種」は線（条間・株間）で描きます。選んでから図面をタップ／ドラッグ。</p>
+  <p class="muted" style="margin:4px 0 8px">「苗」は円（株間）、「播種」は線（条間・株間）、ばらまきは長方形の範囲で描きます。選んでから図面をタップ／ドラッグ。</p>
   <input class="inp" id="pq" placeholder="名前で絞り込み" value="${esc(ui.q)}"><div id="plist"></div>
-  <button class="btn full" style="margin-top:14px" data-act="openCrops">🌱 作物一覧を開く（追加・時期や間隔の編集）</button>`;}
+  <button class="btn full" style="margin-top:14px" data-act="openCrops">🌱 作物一覧を開く（追加・時期や間隔、資材の編集）</button>`;}
+const rowInfo=(l,v)=>`<div class="row between"><span>${l}</span><b>${v}</b></div>`;
+function matLines(p,n){const M=p.mat,a=[];if(M.pole.on){const per=M.pole.per||STYLE_PER[M.pole.style];a.push(rowInfo(`支柱（${M.pole.style}）`,`${M.pole.len}cm φ${M.pole.dia}mm × ${M.pole.style==='ピラミッド型'?Math.max(4,Math.ceil(n/4)*4):n*per}本`));}
+  if(M.net.on)a.push(rowInfo('ネット',`幅${M.net.w}cm・網目${M.net.mesh}cm`));return a.join('');}
 function tabSel(){
-  if(!sel)return `<p class="muted">図面の植物や花壇をタップすると、寸法や数量が表示されます。</p>${wmode==='plant'?'<p class="muted">花壇を増やすときはツールバーの「＋花壇追加」から。</p>':''}`;
+  if(!sel)return `<p class="muted">図面の植物や花壇をタップすると、寸法や数量が表示されます。</p>${wmode==='plant'?'<p class="muted">花壇の位置や形を変えるときはツールバーの「花壇編集」、増やすときは「＋花壇追加」から。</p>':''}`;
   if(sel.t==='bed'){const b=bedById(sel.id);if(!b)return '';const bb=bbox(b.pts),A=bedArea(b);const cnt=tally(items().filter(i=>itemBed(i)===b));
-    return `<h3>花壇</h3><div class="fld"><label>名前</label><input class="inp" data-bed="name" value="${esc(b.name)}"></div>
-    <div class="box"><div class="row between"><span>形・寸法</span><b>${sizeText(b)}</b></div><div class="row between"><span>面積</span><b>${fmt(A/10000)}㎡</b></div><div class="row between"><span>外周</span><b>${fmt(bedPerim(b))}cm</b></div>
-    <div class="row between"><span>位置（左上角）</span><b>(${fmt(bb.minX)}, ${fmt(bb.minY)})</b></div></div>
-    ${cnt.length?`<h3>この花壇の植え付け（${esc(plan().name)}）</h3><table>${cnt.map(t=>`<tr><td><span class="dot" style="display:inline-block;background:${t.p.color}"></span> ${esc(t.p.name)}</td><td class="n">${t.sd?t.sd+'株':''}${t.rows?` ${t.rows}条 ${fmt(t.len)}cm`:''}</td></tr>`).join('')}</table>`:''}
-    <h3>操作</h3><div class="grid2"><button class="btn" data-act="editShape">形・寸法を編集</button><button class="btn" data-act="fillBed">選択中の植物で自動配置</button><button class="btn" data-act="dupBed">花壇を複製</button><button class="btn" data-act="clearBed">植物をすべて外す</button><button class="btn dan" data-act="delBed">花壇を削除</button></div>`;}
+    return `<h3>花壇 ${esc(b.name)}</h3>
+    <div class="box">${rowInfo('形・寸法',sizeText(b))}${rowInfo('面積',fmt(A/10000)+'㎡')}${rowInfo('外周',fmt(bedPerim(b))+'cm')}${rowInfo('位置（左上角）',`(${fmt(bb.minX)}, ${fmt(bb.minY)})`)}</div>
+    ${cnt.length?`<h3>この花壇の植え付け（${esc(plan().name)}）</h3><table>${cnt.map(t=>`<tr><td><span class="dot" style="display:inline-block;background:${t.p.color}"></span> ${esc(t.p.name)}</td><td class="n">${t.sd?t.sd+'株':''}${t.rows?` ${t.rows}条 ${fmt(t.len)}cm`:''}${t.areas?` ${fmt(t.m2)}㎡`:''}</td></tr>`).join('')}</table>`:''}
+    <h3>操作</h3><div class="grid2"><button class="btn" data-act="fillBed">選択中の植物で自動配置</button><button class="btn" data-act="editShape">位置・形を編集</button><button class="btn" data-act="clearBed">植物をすべて外す</button></div>`;}
   const it=itemById(sel.id);if(!it)return '';const p=plantById(it.p);if(!p)return '';const b=itemBed(it);const o=b?relOf(b):{x:0,y:0};const bad=conflicts.has(it.id);
   const head=`<div class="row"><span class="dot" style="background:${p.color}"></span><h3 style="margin:0">${esc(p.name)}（${it.k==='s'?'苗':'播種・'+p.sow}）</h3></div>
   ${bad?`<div class="box bad">間隔が重なっているか花壇からはみ出しています。移動するか削除してください。</div>`:''}
   <p class="muted">位置は「${b?esc(b.name):'花壇外'}」の左上角（外形の角）を0として、左から／上からの距離です。</p>`;
-  if(it.k==='s')return head+`<div class="grid2"><div class="fld"><label>左から cm</label><input class="inp" type="number" inputmode="decimal" data-it="x" value="${fmt(it.x-o.x)}"></div><div class="fld"><label>上から cm</label><input class="inp" type="number" inputmode="decimal" data-it="y" value="${fmt(it.y-o.y)}"></div></div>
-   <div class="box"><div class="row between"><span>株間（円の直径）</span><b>${p.seedlingSp}cm</b></div><div class="row between"><span>花壇の縁から中心まで最低</span><b>${fmt(p.seedlingSp/2)}cm</b></div>${p.support!=='なし'?`<div class="row between"><span>支柱</span><b>${p.supLen}cm × 1本</b></div>`:''}</div>
+  const num=(k,l,v)=>`<div class="fld"><label>${l}</label><input class="inp" type="number" inputmode="decimal" data-it="${k}" value="${fmt(v)}"></div>`;
+  if(it.k==='s')return head+`<div class="grid2">${num('x','左から cm',it.x-o.x)}${num('y','上から cm',it.y-o.y)}</div>
+   <div class="box">${rowInfo('株間（円の直径）',p.seedlingSp+'cm')}${rowInfo('花壇の縁から中心まで最低',fmt(p.seedlingSp/2)+'cm')}${matLines(p,1)}</div>
    <div class="grid2"><button class="btn" data-act="dupItem">隣に1株追加</button><button class="btn dan" data-act="delItem">削除</button></div>`;
+  if(it.k==='a'){const a=areaStats(it,p);const x1=Math.min(it.x1,it.x2),y1=Math.min(it.y1,it.y2);
+    return head+`<div class="grid2">${num('ax','左上 左から cm',x1-o.x)}${num('ay','左上 上から cm',y1-o.y)}${num('aw','幅 cm',a.w)}${num('ah','奥行 cm',a.h)}</div>
+    <div class="box">${rowInfo('面積',fmt(a.m2)+'㎡')}${rowInfo('種の量',`${a.seeds}粒（${p.perPoint}粒/㎡）`)}${a.plants?rowInfo('仕上がり株数の目安',`約${a.plants}株（株間${p.seedSp}cm）`):''}${matLines(p,a.plants)}</div>
+    <div class="grid2"><button class="btn" data-act="dupItem">隣に同じ範囲を追加</button><button class="btn dan" data-act="delItem">削除</button></div>`;}
   const r=rowStats(it,p);const ang=Math.round(Math.atan2(it.y2-it.y1,it.x2-it.x1)*180/Math.PI);
-  return head+`<div class="grid2"><div class="fld"><label>始点 左から</label><input class="inp" type="number" inputmode="decimal" data-it="x1" value="${fmt(it.x1-o.x)}"></div><div class="fld"><label>始点 上から</label><input class="inp" type="number" inputmode="decimal" data-it="y1" value="${fmt(it.y1-o.y)}"></div>
-  <div class="fld"><label>終点 左から</label><input class="inp" type="number" inputmode="decimal" data-it="x2" value="${fmt(it.x2-o.x)}"></div><div class="fld"><label>終点 上から</label><input class="inp" type="number" inputmode="decimal" data-it="y2" value="${fmt(it.y2-o.y)}"></div></div>
-  <div class="fld"><label>条の長さ cm（始点固定で伸縮）</label><input class="inp" type="number" inputmode="decimal" data-it="len" value="${fmt(r.L)}"></div>
-  <div class="box"><div class="row between"><span>角度</span><b>${ang}°</b></div><div class="row between"><span>条間（帯の幅）</span><b>${p.rowSp}cm</b></div><div class="row between"><span>株間</span><b>${p.seedSp}cm</b></div>
-  <div class="row between"><span>仕上がり株数（間引き後）</span><b>${r.plants}株</b></div>${p.sow==='点まき'?`<div class="row between"><span>まき穴</span><b>${r.points}か所 × ${p.perPoint}粒 ＝ ${r.seeds}粒</b></div>`:`<div class="row between"><span>すじまき 種の目安</span><b>${r.seeds}粒（${p.perPoint}粒/cm）</b></div>`}
-  ${p.support!=='なし'?`<div class="row between"><span>${p.support}</span><b>${p.support==='ネット'?`長さ${fmt(r.L)}cm・支柱${Math.ceil(r.L/180)+1}本`:`${p.supLen}cm × ${r.plants}本`}</b></div>`:''}</div>
+  return head+`<div class="grid2">${num('x1','始点 左から',it.x1-o.x)}${num('y1','始点 上から',it.y1-o.y)}${num('x2','終点 左から',it.x2-o.x)}${num('y2','終点 上から',it.y2-o.y)}</div>
+  ${num('len','条の長さ cm（始点固定で伸縮）',r.L)}
+  <div class="box">${rowInfo('角度',ang+'°')}${rowInfo('条間（帯の幅）',p.rowSp+'cm')}${rowInfo('株間',p.seedSp+'cm')}${rowInfo('仕上がり株数（間引き後）',r.plants+'株')}
+  ${p.sow==='点まき'?rowInfo('まき穴',`${r.points}か所 × ${p.perPoint}粒 ＝ ${r.seeds}粒`):rowInfo('すじまき 種の目安',`${r.seeds}粒（${p.perPoint}粒/cm）`)}${matLines(p,r.plants)}</div>
   <div class="grid2"><button class="btn" data-act="dupItem">隣に1条追加</button><button class="btn dan" data-act="delItem">削除</button></div>`;}
-function tabBed(){const b=bs&&bs.bedId&&bedById(bs.bedId);
-  const num=`<div class="grid3"><div class="fld"><label>形</label><select class="inp" id="nbS"><option value="rect">四角</option><option value="circle">円</option></select></div>
+function tabBed(){const b=sel&&sel.t==='bed'&&bedById(sel.id);
+  const list=`<div class="seg">${S.beds.map(x=>`<button data-act="pickBed" data-id="${x.id}" class="${b&&b.id===x.id?'on':''}">${esc(x.name)}</button>`).join('')||'<span class="muted">まだ花壇がありません</span>'}</div>`;
+  const numForm=(label,act)=>`<div class="grid3"><div class="fld"><label>形</label><select class="inp" id="nbS"><option value="rect">四角</option><option value="circle">円</option></select></div>
     <div class="fld"><label>幅／直径 cm</label><input class="inp" id="nbW" type="number" inputmode="decimal" value="${b?fmt(bbox(b.pts).w):90}"></div><div class="fld"><label>奥行 cm</label><input class="inp" id="nbH" type="number" inputmode="decimal" value="${b?fmt(bbox(b.pts).h):180}"></div></div>
-    <button class="btn full" data-act="bedNum">この寸法で${b?'作り直す':'作る'}</button>`;
-  if(!b)return `<h3>花壇の形を作る</h3><p class="muted">ツールバーの「四角」「円」「多角形」で図面に描くか、下の数値で作ります。L字や台形は「多角形」で頂点をタップしていきます。</p>${num}
-    <p class="muted" style="margin-top:14px">形ができたら右上の「決定」を押すと、花壇一覧への登録を確認してから植え付けの画面に進みます。</p>`;
-  const bb=bbox(b.pts);let size='';
-  if(b.shape==='rect')size=`<div class="grid2"><div class="fld"><label>幅（横）cm</label><input class="inp" type="number" inputmode="decimal" data-bed="w" value="${fmt(bb.w)}"></div><div class="fld"><label>奥行（縦）cm</label><input class="inp" type="number" inputmode="decimal" data-bed="h" value="${fmt(bb.h)}"></div></div>`;
-  else if(b.shape==='circle')size=`<div class="fld"><label>直径 cm</label><input class="inp" type="number" inputmode="decimal" data-bed="d" value="${fmt(b.c.r*2)}"></div>`;
-  else size=`<table><tr><th>辺</th><th class="n">長さ</th></tr>${b.pts.map((p,i)=>{const q=b.pts[(i+1)%b.pts.length];return `<tr><td>${i+1}→${(i+1)%b.pts.length+1}</td><td class="n">${fmt(Math.hypot(q[0]-p[0],q[1]-p[1]))}cm</td></tr>`;}).join('')}</table>`;
-  return `<h3>花壇の設定</h3><div class="fld"><label>名前</label><input class="inp" data-bed="name" value="${esc(b.name)}"></div>${size}
-  <div class="box"><div class="row between"><span>外形寸法</span><b>${fmt(bb.w)} × ${fmt(bb.h)}cm</b></div><div class="row between"><span>面積</span><b>${fmt(bedArea(b)/10000)}㎡</b></div><div class="row between"><span>外周</span><b>${fmt(bedPerim(b))}cm</b></div></div>
-  <p class="muted">「変形・移動」で頂点●をドラッグすると形を調整できます。${b.shape==='poly'?'辺の中点○をドラッグすると頂点が増えます。':''}描き直すと形が置き換わります。</p>
-  <details><summary>数値で作り直す</summary>${num}</details>
-  <button class="btn pri full" style="margin-top:12px" data-act="bedOk">決定して植え付けへ →</button>`;}
+    <button class="btn full" data-act="${act}">${label}</button>`;
+  let h=`<h3>このプロジェクトの花壇（${S.beds.length}個）</h3>${list}<p class="muted">四角・円・多角形で描くたびに花壇が追加されます。まとめて描いてから「決定」で花壇一覧に一括登録できます。</p>`;
+  if(b){const bb=bbox(b.pts);let size='';
+    if(b.shape==='rect')size=`<div class="grid2"><div class="fld"><label>幅（横）cm</label><input class="inp" type="number" inputmode="decimal" data-bed="w" value="${fmt(bb.w)}"></div><div class="fld"><label>奥行（縦）cm</label><input class="inp" type="number" inputmode="decimal" data-bed="h" value="${fmt(bb.h)}"></div></div>`;
+    else if(b.shape==='circle')size=`<div class="fld"><label>直径 cm</label><input class="inp" type="number" inputmode="decimal" data-bed="d" value="${fmt(b.c.r*2)}"></div>`;
+    else size=`<details><summary>辺の長さ（${b.pts.length}辺）</summary><table>${b.pts.map((p,i)=>{const q=b.pts[(i+1)%b.pts.length];return `<tr><td>${i+1}→${(i+1)%b.pts.length+1}</td><td class="n">${fmt(Math.hypot(q[0]-p[0],q[1]-p[1]))}cm</td></tr>`;}).join('')}</table></details>`;
+    h+=`<h3>選択中：${esc(b.name)}</h3><div class="fld"><label>名前</label><input class="inp" data-bed="name" value="${esc(b.name)}"></div>${size}
+    <div class="grid2"><div class="fld"><label>左上の位置 X cm</label><input class="inp" type="number" inputmode="decimal" data-bed="x" value="${fmt(bb.minX)}"></div><div class="fld"><label>左上の位置 Y cm</label><input class="inp" type="number" inputmode="decimal" data-bed="y" value="${fmt(bb.minY)}"></div></div>
+    <div class="box">${rowInfo('外形寸法',`${fmt(bb.w)} × ${fmt(bb.h)}cm`)}${rowInfo('面積',fmt(bedArea(b)/10000)+'㎡')}${rowInfo('外周',fmt(bedPerim(b))+'cm')}</div>
+    <div class="grid2"><button class="btn" data-act="dupBed">複製</button><button class="btn dan" data-act="delBedNow">削除</button></div>
+    <details><summary>数値で形を作り直す</summary>${numForm('この寸法で作り直す','bedRe')}</details>`;}
+  h+=`<details ${b?'':'open'}><summary>数値で花壇を追加</summary>${numForm('花壇を追加','bedAdd')}</details>
+  <button class="btn pri full" style="margin-top:12px" data-act="bedOk">決定して植え付けへ →</button>`;return h;}
 function tabDisp(){const s=S.settings;const sel_=(k,opts)=>`<select class="inp" data-set="${k}">${opts.map(([v,l])=>`<option value="${v}" ${String(s[k])===String(v)?'selected':''}>${l}</option>`).join('')}</select>`;
-  return `<h3>図面の表示</h3>
+  return `<h3>方位</h3><div class="row"><div style="flex:1">${northSelect(northOf(),'data-proj="north"')}</div><button class="btn" data-act="north">角度で指定</button></div>
+  <h3>図面の表示</h3>
   <div class="grid2"><div class="fld"><label>罫線1マス</label>${sel_('grid',[[5,'5cm'],[10,'10cm'],[20,'20cm'],[25,'25cm'],[50,'50cm']])}</div>
   <div class="fld"><label>吸着（スナップ）</label>${sel_('snap',[[0,'なし'],[1,'1cm'],[5,'5cm'],[10,'10cm']])}</div>
   ${wmode==='plant'?`<div class="fld"><label>苗の並べ方（自動配置）</label>${sel_('pattern',[['hex','千鳥'],['grid','格子']])}</div>
   <div class="fld"><label>条の向き（自動配置）</label>${sel_('rowDir',[['auto','長辺に沿う'],['h','横'],['v','縦']])}</div>`:''}
-  <div class="fld"><label>北の向き</label>${sel_('north',[[0,'上'],[90,'右'],[180,'下'],[270,'左']])}</div>
   <div class="fld"><label>表示テーマ</label>${sel_('theme',[['auto','端末に合わせる'],['light','ライト'],['dark','ダーク']])}</div></div>
   ${wmode==='plant'?`<label class="sw"><input type="checkbox" data-set="angleSnap" ${s.angleSnap?'checked':''}>条を0°・45°・90°に吸着</label>`:''}
   <label class="sw"><input type="checkbox" data-set="showLabels" ${s.showLabels?'checked':''}>名前と辺の長さを表示</label>
@@ -967,31 +1074,40 @@ const pbody=$('#pbody');
 pbody.addEventListener('input',e=>{if(e.target.id==='pq'){ui.q=e.target.value;$('#plist').innerHTML=plantList();}});
 pbody.addEventListener('change',e=>{const t=e.target;if(wmode==='view')return;
   if(t.dataset.set){const k=t.dataset.set;let v=t.type==='checkbox'?t.checked:t.value;if(typeof DEF[k]==='number')v=+v||0;S.settings[k]=v;if(k==='theme')applyTheme();save();render();if(k==='showAllSeasons')refreshPanel();return;}
+  if(t.dataset.proj==='north'){pushUndo();cur.north=+t.value;changed();return;}
   if(t.dataset.plan){cur.plans[+t.dataset.plan].name=t.value||'プラン';save();renderToolbar();return;}
-  if(t.dataset.bed){const b=bedById(sel?sel.id:bs&&bs.bedId);if(!b)return;const k=t.dataset.bed,v=+t.value;pushUndo();
+  if(t.dataset.bed){const b=sel&&bedById(sel.id);if(!b)return;const k=t.dataset.bed,v=+t.value;pushUndo();const bb=bbox(b.pts);
     if(k==='name')b.name=t.value||b.name;
-    else if(v>=10){const bb=bbox(b.pts);if(k==='w')b.pts=rectPts(bb.minX,bb.minY,bb.minX+v,bb.maxY);if(k==='h')b.pts=rectPts(bb.minX,bb.minY,bb.maxX,bb.minY+v);if(k==='d'){b.c.r=v/2;b.pts=circPts(b.c.x,b.c.y,b.c.r);}}
+    else if(k==='x'||k==='y'){const dx=k==='x'?v-bb.minX:0,dy=k==='y'?v-bb.minY:0;const ins=[];cur.plans.forEach(pl=>pl.items.forEach(i=>{if(itemBed(i)===b)ins.push(i);}));
+      b.pts=b.pts.map(p=>[p[0]+dx,p[1]+dy]);if(b.c){b.c.x+=dx;b.c.y+=dy;}ins.forEach(i=>{if(i.k==='s'){i.x+=dx;i.y+=dy;}else{i.x1+=dx;i.x2+=dx;i.y1+=dy;i.y2+=dy;}});}
+    else if(v>=10){if(k==='w')b.pts=rectPts(bb.minX,bb.minY,bb.minX+v,bb.maxY);if(k==='h')b.pts=rectPts(bb.minX,bb.minY,bb.maxX,bb.minY+v);if(k==='d'){b.c.r=v/2;b.pts=circPts(b.c.x,b.c.y,b.c.r);}}
     else{undoS.pop();toast('10cm以上を入力してください');}
     changed();return;}
   if(t.dataset.it){const it=itemById(sel.id);if(!it)return;const b=itemBed(it);const o=b?relOf(b):{x:0,y:0};const k=t.dataset.it,v=parseFloat(t.value);if(isNaN(v))return refreshPanel();
     const snap=snapshot();const c={...it};
     if(k==='x')c.x=o.x+v;if(k==='y')c.y=o.y+v;if(k==='x1')c.x1=o.x+v;if(k==='y1')c.y1=o.y+v;if(k==='x2')c.x2=o.x+v;if(k==='y2')c.y2=o.y+v;
     if(k==='len'){const L=rowLen(it)||1;c.x2=it.x1+(it.x2-it.x1)/L*v;c.y2=it.y1+(it.y2-it.y1)/L*v;}
+    if(k==='ax'||k==='ay'||k==='aw'||k==='ah'){const x1=Math.min(it.x1,it.x2),y1=Math.min(it.y1,it.y2),w=Math.abs(it.x2-it.x1),h=Math.abs(it.y2-it.y1);
+      const nx=k==='ax'?o.x+v:x1,ny=k==='ay'?o.y+v:y1,nw=k==='aw'?v:w,nh=k==='ah'?v:h;if(nw<5||nh<5){toast('5cm以上にしてください');return refreshPanel();}c.x1=nx;c.y1=ny;c.x2=nx+nw;c.y2=ny+nh;}
     const r=checkItem(c,obstacles(it.id));if(!r.ok){toast(r.msg||'その位置には置けません');refreshPanel();return;}
     pushUndo(snap);Object.assign(it,c);changed();}
 });
 pbody.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||wmode==='view')return;const a=b.dataset.act;
   if(a==='pick'){const p=plantById(b.dataset.id);active={pid:p.id,m:b.dataset.m};setTool(b.dataset.m==='s'?'seedling':'row');refreshPanel();if(innerWidth<=760){$('#panel').classList.add('hidden');resize();}return;}
   if(a==='openCrops')return showCrops(()=>openWork('plant',{fit:false}));
-  if(a==='bedNum'){const sh=$('#nbS').value,w=+$('#nbW').value,h=+$('#nbH').value;if(!(w>=10)||(sh==='rect'&&!(h>=10)))return toast('10cm以上を入力してください');
-    const ex=bs.bedId&&bedById(bs.bedId);const o=ex?{x:bbox(ex.pts).minX,y:bbox(ex.pts).minY}:placeOffset(cur);
-    if(sh==='rect')setSessionBed('rect',rectPts(o.x,o.y,o.x+w,o.y+h),null);else setSessionBed('circle',circPts(o.x+w/2,o.y+w/2,w/2),{x:o.x+w/2,y:o.y+w/2,r:w/2});fitBed();return;}
+  if(a==='north')return openNorth();
+  if(a==='pickBed'){sel={t:'bed',id:b.dataset.id};setTool('select');refreshPanel();render();return;}
+  if(a==='bedAdd'||a==='bedRe'){const sh=$('#nbS').value,w=+$('#nbW').value,h=+$('#nbH').value;if(!(w>=10)||(sh==='rect'&&!(h>=10)))return toast('10cm以上を入力してください');
+    const ex=a==='bedRe'&&sel&&bedById(sel.id);const o=ex?{x:bbox(ex.pts).minX,y:bbox(ex.pts).minY}:placeOffset(cur);
+    const pts=sh==='rect'?rectPts(o.x,o.y,o.x+w,o.y+h):circPts(o.x+w/2,o.y+w/2,w/2),c=sh==='rect'?null:{x:o.x+w/2,y:o.y+w/2,r:w/2};
+    if(ex)replaceShape(ex,sh,pts,c);else addSessionBed(sh,pts,c);fitView();return;}
   if(a==='bedOk')return bedDecide();
-  if(a==='editShape'){const id=sel.id;openWork('bed',{bedId:id,from:'edit'});return;}
+  if(a==='editShape'){const id=sel.id;openWork('bed',{from:'edit',selId:id,fit:false});return;}
   if(a==='fillBed'){const bd=bedById(sel.id);if(bd)autoFill(bd);return;}
-  if(a==='dupBed'){const bd=bedById(sel.id);const bb=bbox(bd.pts);const dx=bb.w+60;pushUndo();const nb=JSON.parse(JSON.stringify(bd));nb.id=uid();nb.name=nextBedName();nb.pts=nb.pts.map(p=>[p[0]+dx,p[1]]);if(nb.c)nb.c.x+=dx;cur.beds.push(nb);sel={t:'bed',id:nb.id};changed();fitView();return;}
+  if(a==='dupBed'){const bd=bedById(sel.id);const bb=bbox(bd.pts);const dx=bb.w+60;pushUndo();const nb=JSON.parse(JSON.stringify(bd));nb.id=uid();nb.name=nextBedName();nb.pts=nb.pts.map(p=>[p[0]+dx,p[1]]);if(nb.c)nb.c.x+=dx;cur.beds.push(nb);bs&&bs.created.push(nb.id);sel={t:'bed',id:nb.id};changed();fitView();return;}
+  if(a==='delBedNow'){const bd=bedById(sel.id);const n=cur.plans.reduce((s,pl)=>s+pl.items.filter(i=>itemBed(i)===bd).length,0);
+    const go=()=>{deleteBed(bd);toast(`${bd.name}を削除しました（戻すで取り消し）`);};if(n)askConfirm(`${bd.name}を削除すると、中の植物${n}件（全プラン）も消えます。`,go,'削除する');else go();return;}
   if(a==='clearBed'){const bd=bedById(sel.id);askConfirm(`${bd.name}の植物（${plan().name}）をすべて外しますか？`,()=>{pushUndo();plan().items=items().filter(i=>itemBed(i)!==bd);changed();});return;}
-  if(a==='delBed'){const bd=bedById(sel.id);askConfirm(`${bd.name}を削除しますか？中の植物（全プラン）も削除されます。`,()=>deleteBed(bd));return;}
   if(a==='delItem'){pushUndo();plan().items=items().filter(i=>i.id!==sel.id);sel=null;changed();return;}
   if(a==='dupItem')return dupItem();
   if(a==='addPlan'){pushUndo();cur.plans.push({id:uid(),name:`プラン${cur.plans.length+1}`,items:[]});cur.activePlan=cur.plans.length-1;changed();renderToolbar();return;}
@@ -999,26 +1115,34 @@ pbody.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b|
   if(a==='delPlan'){const i=+b.dataset.i;askConfirm(`「${cur.plans[i].name}」を削除しますか？`,()=>{pushUndo();cur.plans.splice(i,1);cur.activePlan=0;sel=null;changed();renderToolbar();});return;}
   if(a==='image')return exportImage();
 });
+function dupItem(){const it=itemById(sel.id);const p=plantById(it.p);let c=null;
+  if(it.k==='s'){const s=p.seedlingSp;for(const [dx,dy] of [[s,0],[0,s],[-s,0],[0,-s],[s/2,s*0.866],[-s/2,s*0.866]]){const t={...it,id:uid(),x:it.x+dx,y:it.y+dy};if(checkItem(t,obstacles()).ok){c=t;break;}}}
+  else if(it.k==='a'){const w=Math.abs(it.x2-it.x1),h=Math.abs(it.y2-it.y1);for(const [dx,dy] of [[w,0],[0,h],[-w,0],[0,-h]]){const t={...it,id:uid(),x1:it.x1+dx,x2:it.x2+dx,y1:it.y1+dy,y2:it.y2+dy};if(checkItem(t,obstacles()).ok){c=t;break;}}}
+  else{const L=rowLen(it)||1,nx=-(it.y2-it.y1)/L*p.rowSp,ny=(it.x2-it.x1)/L*p.rowSp;for(const k of [1,-1]){const t={...it,id:uid(),x1:it.x1+nx*k,y1:it.y1+ny*k,x2:it.x2+nx*k,y2:it.y2+ny*k};if(checkItem(t,obstacles()).ok){c=t;break;}}}
+  if(!c)return toast('隣に置けるスペースがありません');pushUndo();items().push(c);sel={t:'item',id:c.id};changed();}
 
 /* ============ 画面：作物一覧 ============ */
 let cropsBack=showHome;
+const gUrl=(q,img)=>`https://www.google.com/search?q=${encodeURIComponent(q)}${img?'&udm=2':''}`;
+const gLinks=name=>`<div class="row" style="gap:6px;margin-top:6px"><a class="btn sm" href="${gUrl(name)}" target="_blank" rel="noopener" data-g>🔍 Google</a><a class="btn sm" href="${gUrl(name,1)}" target="_blank" rel="noopener" data-g>🖼 画像</a><a class="btn sm" href="${gUrl(name+' 育て方')}" target="_blank" rel="noopener" data-g>📖 育て方</a></div>`;
+document.addEventListener('click',e=>{const a=e.target.closest('a[data-g]');if(!a)return;e.stopPropagation();if(navigator.onLine===false){e.preventDefault();toast('オフラインのため検索できません。通信できる場所でお試しください');}},true);
 function showCrops(back){if(back)cropsBack=back;
-  showPage('作物一覧',`<p class="muted">ここで登録した作物の時期・株間・条間が、花壇に配置するときの円や線の大きさ、候補の絞り込みに使われます。変更はすべての計画に反映されます。</p>
+  showPage('作物一覧',`<p class="muted">ここで登録した作物の時期・株間・条間・資材が、花壇に配置するときの円や線の大きさ、候補の絞り込み、資材の計算に使われます。変更はすべての計画に反映されます。</p>
   <div class="row"><button class="btn pri" data-c="add">＋ 作物を追加</button><button class="btn" data-c="presets">候補からまとめて追加</button><button class="btn" data-c="csv">一覧表で一括登録</button><button class="btn" data-c="table">まとめて削除</button></div>
   <input class="inp" id="cq" style="margin-top:12px" placeholder="名前で絞り込み" value="${esc(ui.cq)}">
   <div class="seg" id="cseg">${[['all','すべて'],...CATS.map(c=>[c,c]),['s','播種できる'],['p','苗で植える'],['m',`${S.settings.month}月に作付け`]].map(([k,l])=>`<button data-cat="${k}" class="${ui.ccat===k?'on':''}">${l}</button>`).join('')}</div>
   <div id="clist"></div>`,{back:()=>cropsBack(),refresh:renderCropList});
   renderCropList();
   $('#cq').oninput=e=>{ui.cq=e.target.value;renderCropList();};
-  $('#pgBody').onclick=e=>{const c=e.target.closest('[data-c]');if(c){const k=c.dataset.c;if(k==='add')plantEditor(null);if(k==='presets')presetsModal();if(k==='csv')csvModal();if(k==='table')tableModal();return;}
+  $('#pgBody').onclick=e=>{if(e.target.closest('a[data-g]'))return;const c=e.target.closest('[data-c]');if(c){const k=c.dataset.c;if(k==='add')plantEditor(null);if(k==='presets')presetsModal();if(k==='csv')csvModal();if(k==='table')tableModal();return;}
     const g=e.target.closest('[data-cat]');if(g){ui.ccat=g.dataset.cat;$$('#cseg button').forEach(x=>x.classList.toggle('on',x.dataset.cat===ui.ccat));renderCropList();return;}
     const r=e.target.closest('[data-crop]');if(r)plantEditor(plantById(r.dataset.crop));};}
 function renderCropList(){const el=$('#clist');if(!el)return;const q=ui.cq.trim(),c=ui.ccat,m=S.settings.month;
   const list=DB.plants.filter(p=>(!q||p.name.includes(q))&&(c==='all'||p.cat===c||(c==='s'&&hasSeed(p))||(c==='p'&&hasSeedling(p))||(c==='m'&&((hasSeed(p)&&p.seedM.includes(m))||(hasSeedling(p)&&p.plantM.includes(m))))))
     .sort((a,b)=>CATS.indexOf(a.cat)-CATS.indexOf(b.cat)||a.name.localeCompare(b.name,'ja'));
-  el.innerHTML=`<p class="muted">${list.length}品目（全${DB.plants.length}品目）　タップで編集</p>`+(list.length?list.map(p=>`<div class="crow" data-crop="${p.id}"><span class="dot" style="background:${p.color};width:18px;height:18px"></span><div class="nm"><b>${esc(p.name)}</b> <span class="tag">${esc(p.cat)}</span>
-    ${hasSeed(p)?`<div>━ 播種 ${fmtMonths(p.seedM)}・条間${p.rowSp}cm／株間${p.seedSp}cm・${p.sow}</div>`:''}${hasSeedling(p)?`<div>● 苗 ${fmtMonths(p.plantM)}・株間${p.seedlingSp}cm</div>`:''}
-    <div>${p.harvM.length?`収穫 ${fmtMonths(p.harvM)}`:''}${p.support!=='なし'?`　${p.support}${p.supLen}cm`:''}${p.protect!=='なし'?`　${p.protect}`:''}</div></div><span class="ed" style="display:grid;place-items:center">✎</span></div>`).join(''):'<div class="box muted">該当する作物がありません。</div>');}
+  el.innerHTML=`<p class="muted">${list.length}品目（全${DB.plants.length}品目）　タップで編集</p>`+(list.length?list.map(p=>{const ms=matSummary(p);return `<div class="crow" data-crop="${p.id}"><span class="dot" style="background:${p.color};width:18px;height:18px"></span><div class="nm"><b>${esc(p.name)}</b> <span class="tag">${esc(p.cat)}</span>
+    ${hasSeed(p)?`<div>━ 播種 ${fmtMonths(p.seedM)}・${p.sow==='ばらまき'?`ばらまき ${p.perPoint}粒/㎡`:`条間${p.rowSp}cm／株間${p.seedSp}cm・${p.sow}`}</div>`:''}${hasSeedling(p)?`<div>● 苗 ${fmtMonths(p.plantM)}・株間${p.seedlingSp}cm</div>`:''}
+    ${p.harvM.length?`<div>収穫 ${fmtMonths(p.harvM)}</div>`:''}${ms?`<div>資材 ${esc(ms)}</div>`:''}${gLinks(p.name)}</div><span class="ed" style="display:grid;place-items:center">✎</span></div>`;}).join(''):'<div class="box muted">該当する作物がありません。</div>');}
 
 function plantList(){const m=S.settings.month,all=S.settings.showAllSeasons,q=ui.q.trim();let n=0;
   const html=CATS.concat(['その他']).map(cat=>{const ps=S.plants.filter(p=>(CATS.includes(p.cat)?p.cat:'その他')===cat&&(!q||p.name.includes(q)));
@@ -1035,87 +1159,134 @@ function relOf(b){const bb=bbox(b.pts);return {x:bb.minX,y:bb.minY};}
 function tabSum(){const t=tally(items());const pl=plan();
   let h=`<h3>${esc(pl.name)} の植え付け数量</h3>`;
   if(!t.length)return h+`<p class="muted">まだ植物が配置されていません。植物タブで選んで図面に置いてください。</p>`+calendarHtml([]);
-  const sd=t.reduce((a,x)=>a+x.sd,0),rp=t.reduce((a,x)=>a+x.rowPlants,0),rl=t.reduce((a,x)=>a+x.len,0);
+  const sd=t.reduce((a,x)=>a+x.sd,0),rp=t.reduce((a,x)=>a+x.rowPlants+x.areaPlants,0),rl=t.reduce((a,x)=>a+x.len,0),am=t.reduce((a,x)=>a+x.m2,0);
   h+=`<div class="scroll"><table><tr><th>植物</th><th class="n">苗</th><th class="n">播種</th><th class="n">株数計</th></tr>${t.map(x=>`<tr><td><span class="dot" style="display:inline-block;background:${x.p.color};vertical-align:-2px"></span> ${esc(x.p.name)}</td>
-    <td class="n">${x.sd?x.sd+'株':''}</td><td class="n">${x.rows?`${x.rows}条 ${fmt(x.len)}cm<br><span class="muted">${x.p.sow==='点まき'?`${x.points}穴・${x.seeds}粒`:`約${x.seeds}粒`}</span>`:''}</td><td class="n"><b>${x.sd+x.rowPlants}</b></td></tr>`).join('')}
-    <tr><td><b>合計</b></td><td class="n"><b>${sd}株</b></td><td class="n"><b>${fmt(rl/100)}m</b></td><td class="n"><b>${sd+rp}</b></td></tr></table></div>
-    <p class="muted">播種の株数は間引き後（株間ごと）の仕上がり数です。</p>`;
+    <td class="n">${x.sd?x.sd+'株':''}</td><td class="n">${x.rows?`${x.rows}条 ${fmt(x.len)}cm<br><span class="muted">${x.p.sow==='点まき'?`${x.points}穴・${x.seeds}粒`:`約${x.seeds}粒`}</span>`:''}${x.areas?`ばらまき ${fmt(x.m2)}㎡<br><span class="muted">約${x.seeds}粒</span>`:''}</td><td class="n"><b>${x.sd+x.rowPlants+x.areaPlants||'—'}</b></td></tr>`).join('')}
+    <tr><td><b>合計</b></td><td class="n"><b>${sd}株</b></td><td class="n"><b>${rl?fmt(rl/100)+'m':''}${am?`<br>${fmt(am)}㎡`:''}</b></td><td class="n"><b>${sd+rp}</b></td></tr></table></div>
+    <p class="muted">播種の株数は間引き後（株間ごと）の仕上がり数です。ばらまきは株間が登録されている場合のみ目安を出します。</p>`;
   if(conflicts.size)h+=`<div class="box bad">間隔が重なっている植物が${conflicts.size}件あります（赤い破線）。</div>`;
   h+=companionHtml();
   h+=`<h3>位置合わせ寸法</h3><p class="muted">各花壇の外形の左上角を0とした距離（cm）。メジャーを2方向に当てて印を付けます。</p>`;
   for(const b of S.beds){const list=items().filter(i=>itemBed(i)===b);if(!list.length)continue;const o=relOf(b);
     const rows=list.map(i=>({i,p:plantById(i.p),y:i.k==='s'?i.y:Math.min(i.y1,i.y2),x:i.k==='s'?i.x:Math.min(i.x1,i.x2)})).sort((a,c)=>a.y-c.y||a.x-c.x);
-    h+=`<details ${S.beds.length<=2?'open':''}><summary>${esc(b.name)}（${list.length}件）</summary><div class="scroll"><table><tr><th>植物</th><th class="n">左から</th><th class="n">上から</th><th class="n">長さ</th></tr>
+    h+=`<details ${S.beds.length<=2?'open':''}><summary>${esc(b.name)}（${list.length}件）</summary><div class="scroll"><table><tr><th>植物</th><th class="n">左から</th><th class="n">上から</th><th class="n">長さ・大きさ</th></tr>
     ${rows.map(({i,p})=>i.k==='s'?`<tr><td>● ${esc(p.name)}</td><td class="n">${fmt(i.x-o.x)}</td><td class="n">${fmt(i.y-o.y)}</td><td></td></tr>`:
+      i.k==='a'?`<tr><td>▦ ${esc(p.name)}<br><span class="muted">左上の角</span></td><td class="n">${fmt(Math.min(i.x1,i.x2)-o.x)}</td><td class="n">${fmt(Math.min(i.y1,i.y2)-o.y)}</td><td class="n">${fmt(Math.abs(i.x2-i.x1))}×${fmt(Math.abs(i.y2-i.y1))}</td></tr>`:
       `<tr><td>━ ${esc(p.name)}<br><span class="muted">始点→終点</span></td><td class="n">${fmt(i.x1-o.x)}<br>${fmt(i.x2-o.x)}</td><td class="n">${fmt(i.y1-o.y)}<br>${fmt(i.y2-o.y)}</td><td class="n">${fmt(rowLen(i))}</td></tr>`).join('')}</table></div></details>`;}
   h+=calendarHtml(t.map(x=>x.p));
   return h;}
 function companionHtml(){const its=items().map(i=>({i,p:plantById(i.p),s:shapeOf(i)})).filter(x=>x.p&&x.s);const bad=new Set(),good=new Set();
-  const gap=(a,b)=>{if(a.k==='s'&&b.k==='s')return Math.hypot(a.x-b.x,a.y-b.y)-a.r-b.r;if(a.k==='s')return dPS(a.x,a.y,b.a,b.b)-a.r-b.w;if(b.k==='s')return dPS(b.x,b.y,a.a,a.b)-b.r-a.w;return dSS(a.a,a.b,b.a,b.b)-a.w-b.w;};
   const has=(n,k)=>n.includes(k);
   for(let x=0;x<its.length;x++)for(let y=x+1;y<its.length;y++){const A=its[x],B=its[y];if(A.p===B.p)continue;
-    const pr=(L)=>L.find(([u,v])=>(has(A.p.name,u)&&has(B.p.name,v))||(has(A.p.name,v)&&has(B.p.name,u)));
-    const bp=pr(BAD_PAIRS),gp=pr(GOOD_PAIRS);if(!bp&&!gp)continue;if(gap(A.s,B.s)>40)continue;
+    const pr=L=>L.find(([u,v])=>(has(A.p.name,u)&&has(B.p.name,v))||(has(A.p.name,v)&&has(B.p.name,u)));
+    const bp=pr(BAD_PAIRS),gp=pr(GOOD_PAIRS);if(!bp&&!gp)continue;if(coreDist(A.s,B.s)-A.s.r-B.s.r>40)continue;
     const key=[A.p.name,B.p.name].sort().join('と');if(bp)bad.add(key);else good.add(key);}
   if(!bad.size&&!good.size)return '';
   return `<h3>相性チェック（40cm以内）</h3>${[...bad].map(k=>`<div class="bad">▲ ${esc(k)}：近くに植えるのは避けたい組み合わせ</div>`).join('')}${[...good].map(k=>`<div class="good">◎ ${esc(k)}：相性の良い組み合わせ</div>`).join('')}<p class="muted">一般的な目安です。</p>`;}
+function tabMat(){const M=materials();let h=`<h3>支柱（${esc(plan().name)}）</h3>`;
+  if(!M.poles.length)h+=`<p class="muted">支柱が必要な植物はまだ配置されていません。作物一覧の「資材」で設定できます。</p>`;
+  else h+=`<table><tr><th>規格</th><th class="n">本数</th></tr>${M.poles.map(p=>`<tr><td>${p.len}cm φ${p.dia}mm<br><span class="muted">${esc(p.why.join('／'))}</span></td><td class="n"><b>${p.n}本</b></td></tr>`).join('')}
+    <tr><td><b>合計</b></td><td class="n"><b>${M.poles.reduce((a,p)=>a+p.n,0)}本</b></td></tr></table>`;
+  if(M.nets.length)h+=`<h3>ネット</h3><table><tr><th>規格・場所</th><th class="n">数量</th></tr>${M.nets.map(n=>`<tr><td>幅${n.w}cm × 長さ${fmt(n.len/100)}m・網目${n.mesh}cm<br><span class="muted">${esc(n.where)}：必要な長さ ${fmt(n.need)}cm</span></td><td class="n"><b>${n.sheets}枚</b></td></tr>`).join('')}</table>`;
+  if(M.extras.length)h+=`<h3>小物</h3><table>${M.extras.map(e=>`<tr><td>${esc(e.name)}</td><td class="n">${e.n}${e.unit}</td></tr>`).join('')}</table>`;
+  h+=`<h3>防寒・防虫・マルチ</h3>`;
+  if(!M.prot.length)h+=`<p class="muted">資材が必要な植物はまだ配置されていません。</p>`;
+  M.prot.forEach(g=>{h+=`<div class="box"><b>${esc(g.type)}</b><div class="muted">${esc(g.where)}</div>${rowInfo('規格・数量',g.spec)}<div class="muted">${g.sub}</div></div>`;});
+  const straw=M.prot.filter(g=>g.kind==='straw').reduce((a,g)=>a+g.kg,0),husk=M.prot.filter(g=>g.kind==='husk').reduce((a,g)=>a+g.kg,0);
+  if(straw||husk)h+=`<div class="box">${straw?rowInfo('稲藁 合計',fmt(straw)+'kg'):''}${husk?rowInfo('籾殻 合計',fmt(husk)+'kg'):''}</div>`;
+  const tot=S.beds.reduce((a,b)=>a+bedArea(b),0)/10000;const st=S.settings;
+  h+=`<h3>土づくり（全花壇 ${fmt(tot)}㎡）</h3><div class="scroll"><table><tr><th>花壇</th><th class="n">面積</th><th class="n">堆肥</th><th class="n">苦土石灰</th><th class="n">元肥</th></tr>
+    ${S.beds.map(b=>{const a=bedArea(b)/10000;return `<tr><td>${esc(b.name)}</td><td class="n">${fmt(a)}㎡</td><td class="n">${fmt(a*st.compost)}kg</td><td class="n">${Math.round(a*st.lime)}g</td><td class="n">${Math.round(a*st.fert)}g</td></tr>`;}).join('')}
+    <tr><td><b>合計</b></td><td class="n"><b>${fmt(tot)}㎡</b></td><td class="n"><b>${fmt(tot*st.compost)}kg</b></td><td class="n"><b>${Math.round(tot*st.lime)}g</b></td><td class="n"><b>${Math.round(tot*st.fert)}g</b></td></tr></table></div>
+    <p class="muted">1㎡あたり 堆肥${st.compost}kg・苦土石灰${st.lime}g・元肥${st.fert}g で計算（表示タブで変更可）。</p>`;
+  const t=tally(items());if(t.length){h+=`<h3>購入リスト（苗・種）</h3><table>${t.map(x=>`<tr><td>${esc(x.p.name)}</td><td class="n">${x.sd?`苗 ${x.sd}株`:''}${x.sd&&(x.rows||x.areas)?'・':''}${x.rows||x.areas?`種 ${x.seeds}粒`:''}</td></tr>`).join('')}</table><p class="muted">苗は予備に1〜2割多めがおすすめです。</p>`;}
+  h+=`<p class="muted">資材量は植え付け範囲からの目安です。支柱の本数は作物一覧の「1株あたりの本数」で調整できます。</p>`;return h;}
+
 function calendarHtml(ps){if(!ps.length)ps=S.plants.filter(p=>items().some(i=>i.p===p.id));if(!ps.length)return '';const m=S.settings.month;
   return `<h3>作業カレンダー</h3><div class="legend"><span><i class="dot" style="background:#f1d27a"></i>播種</span><span><i class="dot" style="background:#9fd39b"></i>植え付け</span><span><i class="dot" style="background:#e9a07c"></i>収穫</span></div>
   <div class="scroll"><table class="cal"><tr><th></th>${Array.from({length:12},(_,i)=>`<th class="${i+1===m?'cur':''}">${i+1}</th>`).join('')}</tr>
   ${ps.map(p=>`<tr><td class="nm">${esc(p.name)}</td>${Array.from({length:12},(_,i)=>{const k=i+1;const c=p.harvM.includes(k)?'h':p.plantM.includes(k)?'p':p.seedM.includes(k)?'s':'';const t=[p.seedM.includes(k)?'播':'',p.plantM.includes(k)?'植':'',p.harvM.includes(k)?'収':''].join('');return `<td class="${c}">${t}</td>`;}).join('')}</tr>`).join('')}</table></div>`;}
 
-function tabMat(){const M=materials();let h=`<h3>支柱・誘引（${esc(plan().name)}）</h3>`;
-  if(!M.sup.size&&!M.net)h+=`<p class="muted">支柱やネットが必要な植物はまだ配置されていません。</p>`;
-  else{h+=`<table><tr><th>資材</th><th class="n">数量</th></tr>${[...M.sup.entries()].sort((a,b)=>a[0]-b[0]).map(([L,n])=>`<tr><td>支柱 ${L}cm</td><td class="n"><b>${n}本</b></td></tr>`).join('')}
-    ${M.net?`<tr><td>園芸ネット（幅は支柱の高さ程度）</td><td class="n"><b>${fmt(up10(M.net+40)/100)}m</b></td></tr><tr><td>ネット用支柱 ${M.netPoleLen}cm（180cm間隔）</td><td class="n"><b>${M.netPoles}本</b></td></tr>`:''}
-    ${M.sup.size?`<tr><td>誘引クリップ／ひも（支柱1本に3か所目安）</td><td class="n">${[...M.sup.values()].reduce((a,b)=>a+b,0)*3}か所</td></tr>`:''}</table>`;}
-  h+=`<h3>防寒・防虫・マルチ</h3>`;
-  if(!M.prot.length)h+=`<p class="muted">資材が必要な植物はまだ配置されていません（植物の登録で「資材」を設定できます）。</p>`;
-  M.prot.forEach(g=>{const s=g.spec;h+=`<div class="box"><b>${esc(g.bed.name)}：${g.type}</b><div class="muted">${esc(g.names.join('・'))}／植え付け範囲 ${fmt(g.L)} × ${fmt(g.W)}cm</div>
-    ${g.type==='不織布'?`<div class="row between"><span>不織布（ベタがけ）</span><b>${s.sheet}</b></div><div class="row between"><span>固定ピン（50cm間隔）</span><b>${s.pins}本</b></div>`:''}
-    ${g.type==='トンネル'?`<div class="row between"><span>トンネル支柱（50cm間隔）</span><b>${s.hoops}本・長さ${s.hoopLen}cm以上</b></div><div class="row between"><span>被覆資材（不織布/ビニール）</span><b>${s.sheet}</b></div><div class="row between"><span>押さえひも・ピン</span><b>${s.pins}か所</b></div>`:''}
-    ${g.type==='マルチ'?`<div class="row between"><span>マルチフィルム</span><b>${s.roll} × ${s.len}cm</b></div><div class="row between"><span>マルチ押さえピン</span><b>${s.pins}本</b></div>`:''}</div>`;});
-  const tot=S.beds.reduce((a,b)=>a+bedArea(b),0)/10000;const st=S.settings;
-  h+=`<h3>土づくり（全花壇 ${fmt(tot)}㎡）</h3><table><tr><th>花壇</th><th class="n">面積</th><th class="n">堆肥</th><th class="n">苦土石灰</th><th class="n">元肥</th></tr>
-    ${S.beds.map(b=>{const a=bedArea(b)/10000;return `<tr><td>${esc(b.name)}</td><td class="n">${fmt(a)}㎡</td><td class="n">${fmt(a*st.compost)}kg</td><td class="n">${Math.round(a*st.lime)}g</td><td class="n">${Math.round(a*st.fert)}g</td></tr>`;}).join('')}
-    <tr><td><b>合計</b></td><td class="n"><b>${fmt(tot)}㎡</b></td><td class="n"><b>${fmt(tot*st.compost)}kg</b></td><td class="n"><b>${Math.round(tot*st.lime)}g</b></td><td class="n"><b>${Math.round(tot*st.fert)}g</b></td></tr></table>
-    <p class="muted">1㎡あたり 堆肥${st.compost}kg・苦土石灰${st.lime}g・元肥${st.fert}g で計算（設定で変更可）。</p>`;
-  const t=tally(items());if(t.length){h+=`<h3>購入リスト</h3><table>${t.map(x=>`<tr><td>${esc(x.p.name)}</td><td class="n">${x.sd?`苗 ${x.sd}株`:''}${x.sd&&x.rows?'・':''}${x.rows?`種 ${x.seeds}粒`:''}</td></tr>`).join('')}</table><p class="muted">苗は予備に1〜2割多めがおすすめです。</p>`;}
-  h+=`<p class="muted">資材量は植え付け範囲からの目安です。</p>`;return h;}
-
-function dupItem(){const it=itemById(sel.id);const p=plantById(it.p);let c=null;
-  if(it.k==='s'){const s=p.seedlingSp;for(const [dx,dy] of [[s,0],[0,s],[-s,0],[0,-s],[s/2,s*0.866],[-s/2,s*0.866]]){const t={...it,id:uid(),x:it.x+dx,y:it.y+dy};if(checkItem(t,obstacles()).ok){c=t;break;}}}
-  else{const L=rowLen(it)||1,nx=-(it.y2-it.y1)/L*p.rowSp,ny=(it.x2-it.x1)/L*p.rowSp;for(const k of [1,-1]){const t={...it,id:uid(),x1:it.x1+nx*k,y1:it.y1+ny*k,x2:it.x2+nx*k,y2:it.y2+ny*k};if(checkItem(t,obstacles()).ok){c=t;break;}}}
-  if(!c)return toast('隣に置けるスペースがありません');pushUndo();items().push(c);sel={t:'item',id:c.id};changed();}
-
 /* ============ 植物の登録 ============ */
 function monthsPicker(key,arr){return `<div class="months" data-mk="${key}">${Array.from({length:12},(_,i)=>`<button type="button" data-mv="${i+1}" class="${arr.includes(i+1)?'on':''}">${i+1}月</button>`).join('')}</div>`;}
-function plantEditor(p){const isNew=!p;p=p||{id:uid(),name:'',cat:'野菜',seedM:[],plantM:[],harvM:[],rowSp:30,seedSp:20,sow:'点まき',perPoint:3,seedlingSp:30,support:'なし',supLen:150,protect:'なし',color:PALETTE[S.plants.length%PALETTE.length],memo:''};
-  const opt=(arr,v)=>arr.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
-  openModal(isNew?'植物を登録':'植物を編集',`
+const opt=(arr,v,unit='')=>arr.map(x=>`<option value="${x}" ${String(x)===String(v)?'selected':''}>${x}${unit}</option>`).join('');
+function plantEditor(p){const isNew=!p;p=p?JSON.parse(JSON.stringify(p)):normalizePlant({id:uid(),name:'',cat:'野菜',seedM:[],plantM:[],harvM:[],rowSp:30,seedSp:20,sow:'点まき',perPoint:3,seedlingSp:30,color:PALETTE[DB.plants.length%PALETTE.length],memo:''});
+  const orig=isNew?null:plantById(p.id);const M=p.mat,P=p.prot;
+  const chk=(id,on,label)=>`<label class="sw"><input type="checkbox" id="${id}" data-tg="${id}" ${on?'checked':''}><b>${label}</b></label>`;
+  const sub=(id,on,html)=>`<div class="box" data-sub="${id}" style="${on?'':'display:none'}">${html}</div>`;
+  openModal(isNew?'作物を登録':'作物を編集',`
   <div class="grid3"><div class="fld" style="grid-column:span 2"><label>名前</label><input class="inp" id="fN" value="${esc(p.name)}" placeholder="例：ミニトマト"></div><div class="fld"><label>色</label><input class="inp" id="fC" type="color" value="${p.color}" style="padding:2px"></div></div>
   <div class="fld"><label>分類</label><select class="inp" id="fK">${opt(CATS,p.cat)}</select></div>
-  <h3>播種（種まき）— 線で描画</h3><div class="fld"><label>種まきの時期</label>${monthsPicker('seedM',p.seedM)}</div>
-  <div class="grid2"><div class="fld"><label>条間 cm（帯の幅）</label><input class="inp" id="fRS" type="number" inputmode="decimal" value="${p.rowSp}"></div><div class="fld"><label>株間 cm（間引き後）</label><input class="inp" id="fSS" type="number" inputmode="decimal" value="${p.seedSp}"></div>
-  <div class="fld"><label>まき方</label><select class="inp" id="fSw">${opt(['点まき','すじまき'],p.sow)}</select></div><div class="fld"><label>粒数（点まき:1か所 / すじ:1cmあたり）</label><input class="inp" id="fPP" type="number" inputmode="decimal" value="${p.perPoint}"></div></div>
+  <div id="fG">${gLinks(p.name||'家庭菜園')}</div>
+  <h3>播種（種まき）</h3><div class="fld"><label>種まきの時期</label>${monthsPicker('seedM',p.seedM)}</div>
+  <div class="fld"><label>まき方</label><div class="seg" id="fSw">${SOWS.map(s=>`<button type="button" data-sw="${s}" class="${p.sow===s?'on':''}">${s}${s==='点まき'?'（穴ごと・線で描画）':s==='すじまき'?'（線で描画）':'（範囲で描画）'}</button>`).join('')}</div></div>
+  <div class="grid2" id="fLine"><div class="fld"><label>条間 cm（帯の幅）</label><input class="inp" id="fRS" type="number" inputmode="decimal" value="${p.rowSp}"></div><div class="fld"><label>株間 cm（間引き後）</label><input class="inp" id="fSS" type="number" inputmode="decimal" value="${p.seedSp}"></div></div>
+  <div class="grid2"><div class="fld"><label id="fPPl">粒数</label><input class="inp" id="fPP" type="number" inputmode="decimal" value="${p.perPoint}"></div><div class="fld" id="fBSS"><label>仕上がり株間 cm（任意・株数の目安用）</label><input class="inp" id="fSS2" type="number" inputmode="decimal" value="${p.seedSp}"></div></div>
   <h3>苗の植え付け — 円で描画</h3><div class="fld"><label>植え付けの時期</label>${monthsPicker('plantM',p.plantM)}</div>
   <div class="fld"><label>株間 cm（円の直径）</label><input class="inp" id="fPS" type="number" inputmode="decimal" value="${p.seedlingSp}"></div>
-  <h3>収穫と資材</h3><div class="fld"><label>収穫の時期</label>${monthsPicker('harvM',p.harvM)}</div>
-  <div class="grid3"><div class="fld"><label>支柱</label><select class="inp" id="fSu">${opt(SUPPORTS,p.support)}</select></div><div class="fld"><label>支柱の長さ cm</label><input class="inp" id="fSL" type="number" inputmode="decimal" value="${p.supLen}"></div><div class="fld"><label>防寒・防虫など</label><select class="inp" id="fPr">${opt(PROTECTS,p.protect)}</select></div></div>
-  <div class="fld"><label>メモ</label><input class="inp" id="fM" value="${esc(p.memo||'')}"></div>
+  <h3>収穫</h3><div class="fld"><label>収穫の時期</label>${monthsPicker('harvM',p.harvM)}</div>
+  <h3>資材 — 支柱・ネット（複数選択可）</h3>
+  ${chk('mPole',M.pole.on,'支柱')}${sub('mPole',M.pole.on,`<div class="fld"><label>立て方</label><div class="seg" id="fSt">${POLE_STYLES.map(s=>`<button type="button" data-st="${s}" class="${M.pole.style===s?'on':''}">${s}</button>`).join('')}</div><div class="muted" id="fStN">${STYLE_NOTE[M.pole.style]}</div></div>
+    <div class="grid3"><div class="fld"><label>長さ</label><select class="inp" id="mPL">${opt(POLE_LENS,M.pole.len,'cm')}</select></div><div class="fld"><label>太さ</label><select class="inp" id="mPD">${opt(POLE_DIAS,M.pole.dia,'mm')}</select></div>
+    <div class="fld"><label>1株あたりの本数</label><input class="inp" id="mPN" type="number" inputmode="numeric" min="0" value="${M.pole.per||''}" placeholder="自動（${STYLE_PER[M.pole.style]}）"></div></div>`)}
+  ${chk('mNet',M.net.on,'ネット')}${sub('mNet',M.net.on,`<div class="grid3"><div class="fld"><label>幅</label><select class="inp" id="mNW">${opt(NET_W,M.net.w,'cm')}</select></div><div class="fld"><label>長さ（1枚）</label><select class="inp" id="mNL">${NET_L.map(x=>`<option value="${x}" ${x===M.net.len?'selected':''}>${x/100}m</option>`).join('')}</select></div><div class="fld"><label>網目</label><select class="inp" id="mNM">${opt(NET_MESH,M.net.mesh,'cm')}</select></div></div>
+    <p class="muted">支柱を使わない場合は、ネット張り用の支柱（180cm間隔）を自動で数えます。</p>`)}
+  <h3>資材 — 防寒・防虫・マルチ（複数選択可）</h3>
+  ${chk('pF',P.fleece.on,'不織布（べたがけ）')}${sub('pF',P.fleece.on,`<div class="fld"><label>幅</label><select class="inp" id="pFW">${opt(FLEECE_W,P.fleece.w,'cm')}</select></div>`)}
+  ${chk('pT',P.tunnel.on,'トンネル')}${sub('pT',P.tunnel.on,`<div class="fld"><label>被覆資材</label><select class="inp" id="pTC">${opt(TUNNEL_COVER,P.tunnel.cover)}</select></div><p class="muted">トンネル支柱の長さと本数（50cm間隔）は植え付け範囲から自動で出します。</p>`)}
+  ${chk('pM',P.mulch.on,'マルチ')}${sub('pM',P.mulch.on,`<div class="grid2"><div class="fld"><label>幅</label><select class="inp" id="pMW">${opt(MULCH_W,P.mulch.w,'cm')}</select></div><div class="fld"><label>種類</label><select class="inp" id="pMT">${opt(MULCH_T,P.mulch.type)}</select></div></div>`)}
+  ${chk('pS',P.straw.on,'稲藁（敷き藁）')}${sub('pS',P.straw.on,`<div class="fld"><label>1㎡あたり kg</label><input class="inp" id="pSK" type="number" inputmode="decimal" step="0.1" value="${P.straw.kg}"></div>`)}
+  ${chk('pH',P.husk.on,'籾殻')}${sub('pH',P.husk.on,`<div class="fld"><label>1㎡あたり kg（厚さ3cmで約3kg）</label><input class="inp" id="pHK" type="number" inputmode="decimal" step="0.1" value="${P.husk.kg}"></div>`)}
+  <div class="fld" style="margin-top:10px"><label>メモ</label><input class="inp" id="fM" value="${esc(p.memo||'')}"></div>
   <p class="muted">種まきの時期が空欄なら「播種」、植え付けの時期が空欄なら「苗」は選べません。</p>`,
   `${isNew?'':`<button class="btn dan" id="fDel">削除</button>`}<button class="btn" data-close>やめる</button><button class="btn pri" id="fSave">保存する</button>`);
   $$('#mb .months button').forEach(x=>x.onclick=()=>x.classList.toggle('on'));
-  const mk=k=>$$(`#mb [data-mk="${k}"] button.on`).map(x=>+x.dataset.mv);
+  $$('#mb [data-tg]').forEach(c=>c.onchange=()=>{$(`#mb [data-sub="${c.dataset.tg}"]`).style.display=c.checked?'':'none';});
+  let sow=p.sow,style=M.pole.style;
+  const sowUI=()=>{$('#fLine').style.display=sow==='ばらまき'?'none':'';$('#fBSS').style.display=sow==='ばらまき'?'':'none';$('#fPPl').textContent=sow==='点まき'?'粒数（1か所あたり）':sow==='すじまき'?'粒数（1cmあたり）':'種の数（1㎡あたり 粒）';};
+  $$('#fSw button').forEach(b=>b.onclick=()=>{sow=b.dataset.sw;$$('#fSw button').forEach(x=>x.classList.toggle('on',x===b));if(sow==='ばらまき'&&+$('#fPP').value<50)$('#fPP').value=1000;if(sow!=='ばらまき'&&+$('#fPP').value>=50)$('#fPP').value=sow==='点まき'?3:1;sowUI();});
+  $$('#fSt button').forEach(b=>b.onclick=()=>{style=b.dataset.st;$$('#fSt button').forEach(x=>x.classList.toggle('on',x===b));$('#fStN').textContent=STYLE_NOTE[style];$('#mPN').placeholder=`自動（${STYLE_PER[style]}）`;});
+  sowUI();
+  $('#fN').onchange=()=>{$('#fG').innerHTML=gLinks($('#fN').value.trim()||'家庭菜園');};
+  const mk=k=>$$(`#mb [data-mk="${k}"] button.on`).map(x=>+x.dataset.mv);const on=id=>$('#'+id).checked;
   $('#fSave').onclick=()=>{const name=$('#fN').value.trim();if(!name)return toast('名前を入力してください');
-    const np={...p,name,cat:$('#fK').value,color:$('#fC').value,seedM:mk('seedM'),plantM:mk('plantM'),harvM:mk('harvM'),rowSp:+$('#fRS').value||0,seedSp:+$('#fSS').value||0,sow:$('#fSw').value,perPoint:+$('#fPP').value||0,
-      seedlingSp:+$('#fPS').value||0,support:$('#fSu').value,supLen:+$('#fSL').value||0,protect:$('#fPr').value,memo:$('#fM').value};
-    if(np.seedM.length&&(!np.rowSp||!np.seedSp))return toast('播種する場合は条間と株間を入力してください');
+    const np={...p,name,cat:$('#fK').value,color:$('#fC').value,seedM:mk('seedM'),plantM:mk('plantM'),harvM:mk('harvM'),sow,
+      rowSp:+$('#fRS').value||0,seedSp:sow==='ばらまき'?(+$('#fSS2').value||0):(+$('#fSS').value||0),perPoint:+$('#fPP').value||0,seedlingSp:+$('#fPS').value||0,memo:$('#fM').value,
+      mat:{pole:{on:on('mPole'),style,len:+$('#mPL').value,dia:+$('#mPD').value,per:+$('#mPN').value||0},net:{on:on('mNet'),w:+$('#mNW').value,len:+$('#mNL').value,mesh:+$('#mNM').value}},
+      prot:{fleece:{on:on('pF'),w:+$('#pFW').value},tunnel:{on:on('pT'),cover:$('#pTC').value},mulch:{on:on('pM'),w:+$('#pMW').value,type:$('#pMT').value},straw:{on:on('pS'),kg:+$('#pSK').value||0},husk:{on:on('pH'),kg:+$('#pHK').value||0}}};
+    if(np.seedM.length&&sow!=='ばらまき'&&(!np.rowSp||!np.seedSp))return toast('播種する場合は条間と株間を入力してください');
+    if(np.seedM.length&&sow==='ばらまき'&&!np.perPoint)return toast('ばらまきの場合は1㎡あたりの種の数を入力してください');
     if(np.plantM.length&&!np.seedlingSp)return toast('苗を植える場合は株間を入力してください');
-    pushUndo();if(isNew)S.plants.push(np);else Object.assign(p,np);closeModal();changed();toast(`${name}を保存しました`);};
+    pushUndo();if(isNew)DB.plants.push(np);else Object.assign(orig,np);closeModal();changed();toast(`${name}を保存しました`);};
   if(!isNew)$('#fDel').onclick=()=>{const n=allPlans().reduce((a,pl)=>a+pl.items.filter(i=>i.p===p.id).length,0);closeModal();
-    askConfirm(`${p.name}を削除しますか？${n?`配置済みの${n}件も消えます。`:''}`,()=>{pushUndo();S.plants=S.plants.filter(x=>x!==p);allPlans().forEach(pl=>pl.items=pl.items.filter(i=>i.p!==p.id));if(active.pid===p.id)active={pid:null,m:null};changed();});};
+    askConfirm(`${p.name}を削除しますか？${n?`配置済みの${n}件も消えます。`:''}`,()=>{pushUndo();DB.plants=DB.plants.filter(x=>x.id!==p.id);allPlans().forEach(pl=>pl.items=pl.items.filter(i=>i.p!==p.id));if(active.pid===p.id)active={pid:null,m:null};changed();});};
 }
+const CSV_HEAD='名前,分類,播種月,植付月,収穫月,まき方,条間cm,株間cm(播種),粒数,苗の株間cm,支柱の立て方,支柱長cm,ネット幅cm,防寒など,色';
+const mCsv=a=>fmtMonths(a).replace('月','').replace(/・/g,'/');
+function plantToCsv(p){const P=p.prot;const pr=[P.fleece.on&&'不織布',P.tunnel.on&&'トンネル',P.mulch.on&&'マルチ',P.straw.on&&'稲藁',P.husk.on&&'籾殻'].filter(Boolean).join(' ');
+  return [p.name,p.cat,mCsv(p.seedM),mCsv(p.plantM),mCsv(p.harvM),p.sow,p.rowSp,p.seedSp,p.perPoint,p.seedlingSp,p.mat.pole.on?p.mat.pole.style:'なし',p.mat.pole.len,p.mat.net.on?p.mat.net.w:'なし',pr||'なし',p.color].join(',');}
+function csvModal(){openModal('一覧表で一括登録',`<p class="muted">1行に1品目。表計算アプリからのコピー（タブ区切り）もそのまま貼り付けできます。同じ名前は上書きします。月は「3-5/9」、防寒などは「不織布 マルチ」のようにスペースで区切ります。ばらまきの粒数は1㎡あたりです。</p>
+  <textarea class="inp" id="csvT" placeholder="${CSV_HEAD}">${CSV_HEAD}\nスナップエンドウ,野菜,10-11,,4-5,点まき,60,30,3,0,合掌型,180,180,不織布,#6fae5a\nベビーリーフ,野菜,3-5/9-10,,4-6/10-12,ばらまき,0,0,1500,0,なし,0,なし,不織布,#8bc34a</textarea>`,
+  `<button class="btn" id="csvOut">登録済みを表示</button><button class="btn" data-close>やめる</button><button class="btn pri" id="csvIn">読み込む</button>`);
+  $('#csvOut').onclick=()=>{$('#csvT').value=[CSV_HEAD,...DB.plants.map(plantToCsv)].join('\n');};
+  $('#csvIn').onclick=()=>{const lines=$('#csvT').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);let add=0,upd=0,err=0;pushUndo();
+    lines.forEach(l=>{const f=l.split(/\t|,/).map(x=>x.trim().replace(/^"|"$/g,''));if(f[0]==='名前'||!f[0])return;
+      const np=mkPlant([f[0],CATS.includes(f[1])?f[1]:'野菜',f[2],f[3],f[4],f[6],f[7],SOWS.includes(f[5])?f[5]:'点まき',f[8],f[9],'なし',0,'なし',/^#[0-9a-f]{6}$/i.test(f[14]||'')?f[14]:null]);
+      if(POLE_STYLES.includes(f[10])){np.mat.pole.on=true;np.mat.pole.style=f[10];np.mat.pole.len=+f[11]||150;}else np.mat.pole.on=false;
+      if(+f[12]>0){np.mat.net.on=true;np.mat.net.w=+f[12];}else np.mat.net.on=false;
+      const pr=(f[13]||'').split(/[\s・\/]+/);np.prot.fleece.on=pr.includes('不織布');np.prot.tunnel.on=pr.includes('トンネル');np.prot.mulch.on=pr.includes('マルチ');np.prot.straw.on=pr.includes('稲藁');np.prot.husk.on=pr.includes('籾殻');
+      if(!hasSeed(np)&&!hasSeedling(np))err++;
+      const ex=DB.plants.find(p=>p.name===np.name);if(ex){const id=ex.id,col=/^#/.test(f[14]||'')?np.color:ex.color;Object.assign(ex,np,{id,color:col});upd++;}else{DB.plants.push(np);add++;}});
+    if(!add&&!upd){undoS.pop();return toast('読み込める行がありません');}
+    closeModal();changed();toast(`追加${add}件・更新${upd}件${err?`（時期か間隔が未入力：${err}件）`:''}`);};}
+function tableModal(){const body=()=>`<div class="scroll"><table><tr><th></th><th>名前</th><th>播種</th><th>苗</th><th class="n">条間/株間</th><th class="n">苗株間</th><th>資材</th><th></th></tr>
+  ${DB.plants.map(p=>`<tr><td><input type="checkbox" class="tk" value="${p.id}" style="width:22px;height:22px"></td><td><span class="dot" style="display:inline-block;background:${p.color};vertical-align:-2px"></span> ${esc(p.name)}<br><span class="muted">${p.cat}</span></td><td>${fmtMonths(p.seedM)}</td><td>${fmtMonths(p.plantM)}</td>
+  <td class="n">${hasSeed(p)?(p.sow==='ばらまき'?`${p.perPoint}粒/㎡`:`${p.rowSp}/${p.seedSp}`)+`<br><span class="muted">${p.sow}</span>`:''}</td><td class="n">${hasSeedling(p)?p.seedlingSp:''}</td><td>${esc(matSummary(p))}</td><td><button class="btn sm" data-ed="${p.id}">編集</button></td></tr>`).join('')}</table></div>`;
+  openModal(`登録一覧（${DB.plants.length}件）`,body(),`<button class="btn dan" id="tDel">チェックしたものを削除</button><button class="btn" data-close>閉じる</button>`);
+  $('#mb').onclick=e=>{const b=e.target.closest('[data-ed]');if(b){plantEditor(plantById(b.dataset.ed));}};
+  $('#tDel').onclick=()=>{const ids=$$('#mb .tk:checked').map(x=>x.value);if(!ids.length)return toast('削除するものにチェックしてください');closeModal();
+    askConfirm(`${ids.length}件の植物を削除しますか？配置済みのものも消えます。`,()=>{pushUndo();DB.plants=DB.plants.filter(p=>!ids.includes(p.id));allPlans().forEach(pl=>pl.items=pl.items.filter(i=>!ids.includes(i.p)));if(ids.includes(active.pid))active={pid:null,m:null};changed();});};}
+
 function presetsModal(){const have=new Set(S.plants.map(p=>p.name));const list=PRESETS.filter(a=>!have.has(a[0]));
   if(!list.length){openModal('候補からまとめて追加','<p>候補はすべて登録済みです。</p>');return;}
   openModal('候補からまとめて追加',`<p class="muted">追加したいものにチェック。時期や間隔は一般的な目安（中間地）です。登録後に編集できます。</p>
@@ -1125,27 +1296,6 @@ function presetsModal(){const have=new Set(S.plants.map(p=>p.name));const list=P
   $('#psAll').onchange=e=>$$('#mb .ps').forEach(x=>x.checked=e.target.checked);
   $('#psAdd').onclick=()=>{const names=$$('#mb .ps:checked').map(x=>x.value);if(!names.length)return toast('1つ以上選んでください');pushUndo();
     PRESETS.filter(a=>names.includes(a[0])).forEach(a=>S.plants.push(mkPlant(a)));closeModal();changed();toast(`${names.length}件を追加しました`);};}
-const CSV_HEAD='名前,分類,播種月,植付月,収穫月,条間cm,株間cm(播種),まき方,粒数,苗の株間cm,支柱,支柱長cm,資材,色';
-function plantToCsv(p){return [p.name,p.cat,fmtMonths(p.seedM).replace('月','').replace(/・/g,'/'),fmtMonths(p.plantM).replace('月','').replace(/・/g,'/'),fmtMonths(p.harvM).replace('月','').replace(/・/g,'/'),p.rowSp,p.seedSp,p.sow,p.perPoint,p.seedlingSp,p.support,p.supLen,p.protect,p.color].join(',');}
-function csvModal(){openModal('一覧表で一括登録',`<p class="muted">1行に1品目。表計算アプリからのコピー（タブ区切り）もそのまま貼り付けできます。同じ名前は上書きします。月は「3-5/9」のように書きます。</p>
-  <textarea class="inp" id="csvT" placeholder="${CSV_HEAD}">${CSV_HEAD}\nスナップエンドウ,野菜,10-11,,4-5,60,30,点まき,3,0,ネット,180,不織布,#6fae5a\nリーフレタス,野菜,3/9,4/10,5-6/11-12,20,20,すじまき,1,25,なし,0,不織布,#a5d66b</textarea>`,
-  `<button class="btn" id="csvOut">登録済みを表示</button><button class="btn" data-close>やめる</button><button class="btn pri" id="csvIn">読み込む</button>`);
-  $('#csvOut').onclick=()=>{$('#csvT').value=[CSV_HEAD,...S.plants.map(plantToCsv)].join('\n');};
-  $('#csvIn').onclick=()=>{const lines=$('#csvT').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);let add=0,upd=0,err=[];pushUndo();
-    lines.forEach((l,i)=>{const f=l.split(/\t|,/).map(x=>x.trim().replace(/^"|"$/g,''));if(f[0]==='名前'||!f[0])return;
-      const a=[f[0],CATS.includes(f[1])?f[1]:'野菜',f[2],f[3],f[4],f[5],f[6],f[7]==='すじまき'?'すじまき':'点まき',f[8],f[9],SUPPORTS.includes(f[10])?f[10]:'なし',f[11],PROTECTS.includes(f[12])?f[12]:'なし',/^#[0-9a-f]{6}$/i.test(f[13]||'')?f[13]:null];
-      const np=mkPlant(a);if(!hasSeed(np)&&!hasSeedling(np)){err.push(`${i+1}行目 ${f[0]}`);}
-      const ex=S.plants.find(p=>p.name===np.name);if(ex){const id=ex.id,col=a[13]?np.color:ex.color;Object.assign(ex,np,{id,color:col});upd++;}else{S.plants.push(np);add++;}});
-    if(!add&&!upd){undoS.pop();return toast('読み込める行がありません');}
-    closeModal();changed();toast(`追加${add}件・更新${upd}件${err.length?`（時期か間隔が未入力：${err.length}件）`:''}`);};}
-function tableModal(){const body=()=>`<div class="scroll"><table><tr><th></th><th>名前</th><th>播種</th><th>苗</th><th class="n">条間/株間</th><th class="n">苗株間</th><th>支柱・資材</th><th></th></tr>
-  ${S.plants.map(p=>`<tr><td><input type="checkbox" class="tk" value="${p.id}" style="width:22px;height:22px"></td><td><span class="dot" style="display:inline-block;background:${p.color};vertical-align:-2px"></span> ${esc(p.name)}<br><span class="muted">${p.cat}</span></td><td>${fmtMonths(p.seedM)}</td><td>${fmtMonths(p.plantM)}</td>
-  <td class="n">${hasSeed(p)?`${p.rowSp}/${p.seedSp}<br><span class="muted">${p.sow}</span>`:''}</td><td class="n">${hasSeedling(p)?p.seedlingSp:''}</td><td>${p.support!=='なし'?`${p.support}${p.supLen}`:''} ${p.protect!=='なし'?p.protect:''}</td><td><button class="btn sm" data-ed="${p.id}">編集</button></td></tr>`).join('')}</table></div>`;
-  openModal(`登録一覧（${S.plants.length}件）`,body(),`<button class="btn dan" id="tDel">チェックしたものを削除</button><button class="btn" data-close>閉じる</button>`);
-  $('#mb').onclick=e=>{const b=e.target.closest('[data-ed]');if(b){plantEditor(plantById(b.dataset.ed));}};
-  $('#tDel').onclick=()=>{const ids=$$('#mb .tk:checked').map(x=>x.value);if(!ids.length)return toast('削除するものにチェックしてください');closeModal();
-    askConfirm(`${ids.length}件の植物を削除しますか？配置済みのものも消えます。`,()=>{pushUndo();S.plants=S.plants.filter(p=>!ids.includes(p.id));allPlans().forEach(pl=>pl.items=pl.items.filter(i=>!ids.includes(i.p)));if(ids.includes(active.pid))active={pid:null,m:null};changed();});};}
-
 /* ============ 書き出し ============ */
 function exportData(){const j=JSON.stringify(DB);openModal('データを書き出す',`<p class="muted">すべての計画・作物一覧・花壇一覧を含みます。「ファイルに保存」するか、文字列をコピーしてメモなどに保存してください。</p><textarea class="inp" id="exT" readonly>${esc(j)}</textarea>`,
   `<button class="btn" data-close>閉じる</button><button class="btn" id="exF">ファイルに保存</button><button class="btn pri" id="exC">コピーする</button>`);
@@ -1165,7 +1315,7 @@ function exportImage(){const pts=S.beds.flatMap(b=>b.pts);if(!pts.length)return 
   drawScene(x,W,H-legendH,v,{export:true});sel=keepSel;
   x.fillStyle=colors.panel;x.fillRect(0,H-legendH,W,legendH);x.fillStyle=colors.ink;x.font='700 18px -apple-system,sans-serif';x.textAlign='left';x.textBaseline='top';x.fillText(`${cur.name}　${plan().name}`,16,14);
   x.font='13px -apple-system,sans-serif';t.forEach((q,i)=>{const cx=16+(i%3)*((W-32)/3),cy=H-legendH+14+Math.floor(i/3)*22;x.fillStyle=q.p.color;x.beginPath();x.arc(cx+6,cy+8,6,0,Math.PI*2);x.fill();x.fillStyle=colors.ink;
-    x.fillText(`${q.p.name} ${q.sd?q.sd+'株':''}${q.rows?` ${q.rows}条(${q.rowPlants}株)`:''}`,cx+18,cy+1);});
+    x.fillText(`${q.p.name} ${q.sd?q.sd+'株':''}${q.rows?` ${q.rows}条(${q.rowPlants}株)`:''}${q.areas?` ばらまき${fmt(q.m2)}㎡`:''}`,cx+18,cy+1);});
   let url;try{url=c.toDataURL('image/png');}catch(e){return toast('画像を作れませんでした');}
   if(NATIVE){openModal('図面の画像',`<img src="${url}" alt="作図の画像" style="width:100%;border:1px solid var(--line);border-radius:10px;-webkit-touch-callout:none">`,`<button class="btn" data-close>閉じる</button><button class="btn pri" id="imgS">共有・ファイルに保存</button>`);
     $('#imgS').onclick=()=>nativePost({type:'shareImage',name:`${cur.name}-${plan().name}.png`.replace(/[\\/:*?"<>|]/g,'_'),data:url});render();return;}
