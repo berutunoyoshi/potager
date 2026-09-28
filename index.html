@@ -195,6 +195,49 @@ body[data-mode="dims"] .tsel,body[data-mode="bed"] .tsel{border-color:rgba(255,2
 fieldset{border:0;margin:0;padding:0;min-width:0}
 fieldset:disabled .btn,fieldset:disabled .inp{opacity:.6}
 .banner{background:var(--leafSoft);color:var(--ink);font-size:13px;padding:8px 12px;border-radius:10px;margin-bottom:10px}
+.csearch{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-top:12px}
+.csearch select.inp{width:auto}
+.seg button.saved{border-style:dashed}
+.fbox{background:var(--panel)}
+.fbox .fl{margin:10px 0}
+.fbox .fl>label{display:block;font-size:12px;color:var(--sub);margin-bottom:2px}
+.fbox .seg{margin:4px 0}
+.mseg{display:grid!important;grid-template-columns:repeat(12,1fr);gap:4px}
+.mseg button{padding:0!important;min-height:36px;font-size:12px}
+.clist{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.clhead,.crow2{display:grid;grid-template-columns:40px minmax(160px,1fr) minmax(230px,320px) 36px;gap:10px;align-items:center}
+.clhead{position:sticky;top:0;background:var(--panel);z-index:2;padding:8px 6px;border-bottom:2px solid var(--line);font-size:12px;color:var(--sub)}
+.crow2{padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+.crow2:last-child{border-bottom:0}
+.crow2:active{background:var(--chip)}
+.cn1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cn1 b{font-size:16px}
+.cd{font-size:12.5px;color:var(--sub);margin-top:2px}
+.tag.comp{background:#fdf1c7;color:#6b4a00}
+.tag.use{background:var(--leafSoft)}
+.strip{display:grid;grid-template-columns:16px repeat(12,1fr);grid-auto-rows:10px;gap:2px 2px;align-self:center}
+.strip b{font-weight:600;color:var(--sub);font-size:9px;line-height:10px}
+.strip em{display:none;font-style:normal;font-size:9px;line-height:10px;text-align:center;color:var(--sub)}
+.strip em.cur{color:var(--pen);font-weight:700}
+.strip i{display:block;border-radius:2px;background:var(--chip)}
+.strip i.s,.lg.s{background:#e7b93c}.strip i.p,.lg.p{background:#58a55c}.strip i.h,.lg.h{background:#e07b4f}
+.strip i.cur{box-shadow:0 0 0 1.5px var(--pen)}
+.lg{display:inline-block;width:16px;height:10px;border-radius:2px}.lg.cur{box-shadow:0 0 0 1.5px var(--pen);background:transparent}
+.mhead{display:grid;grid-template-columns:16px repeat(12,1fr);gap:2px;text-align:center;font-size:11px}
+.mhead .cur{color:var(--pen);font-weight:700}
+.star{border:0;background:none;font-size:22px;color:var(--sub);width:40px;height:44px;touch-action:manipulation;opacity:.5}
+.star.on{color:#e6b422;opacity:1}
+.clist.cal .crow2{padding:6px}
+.clist.cal .strip{grid-auto-rows:14px}
+.clist.cal .clhead,.clist.cal .crow2{grid-template-columns:40px minmax(130px,200px) 1fr 36px}
+@media (max-width:640px){
+  .csearch{grid-template-columns:1fr 1fr}.csearch #cq{grid-column:1/3}
+  .clhead,.crow2,.clist.cal .clhead,.clist.cal .crow2{grid-template-columns:34px 1fr 30px}
+  .clhead .mhead{display:none}
+  .crow2 .strip{grid-column:2/3;grid-row:2}
+  .crow2 .strip em{display:block}
+  .crow2 .ed{grid-row:1}
+}
 </style>
 </head>
 <body>
@@ -301,6 +344,13 @@ const STYLE_NOTE={'一本型':'1株に1本','合掌型':'1株に2本を交差さ
 const NET_W=[90,120,150,180,270],NET_L=[180,270,360,540,1000],NET_MESH=[10,15,18,24];
 const FLEECE_W=[90,135,180,210,230,270],MULCH_W=[95,135,150],MULCH_T=['黒','白黒','透明','シルバー'],TUNNEL_COVER=['不織布','ビニール','防虫ネット'];
 const SOWS=['点まき','すじまき','ばらまき'];
+const EFFECTS=['害虫よけ','病気予防','生育促進','受粉を助ける','天敵を呼ぶ','おとり（誘引）','土づくり','風味向上'];
+const PRESET_COMP={'マリーゴールド':[['害虫よけ'],['トマト','ナス','ピーマン','キャベツ'],[]],'ナスタチウム':[['おとり（誘引）','害虫よけ'],['キャベツ','キュウリ','トマト'],[]],
+ 'バジル':[['害虫よけ','風味向上'],['トマト','ナス','ピーマン'],[]],'ボリジ':[['受粉を助ける','害虫よけ'],['イチゴ','トマト','キュウリ'],[]],'カレンデュラ':[['天敵を呼ぶ','害虫よけ'],['キャベツ','ブロッコリー','トマト'],[]],
+ 'ネギ':[['病気予防'],['キュウリ','トマト','ナス','イチゴ'],['エンドウ','エダマメ','ソラマメ']],'ニンニク':[['病気予防','害虫よけ'],['イチゴ','トマト','キャベツ'],['エンドウ','エダマメ']],
+ 'パセリ':[['害虫よけ'],['トマト','ナス'],[]],'シソ':[['害虫よけ'],['トマト','ナス'],[]],'エダマメ':[['土づくり'],['トウモロコシ','ニンジン'],['ネギ','ニンニク']],
+ 'レタス':[['害虫よけ'],['キャベツ','ブロッコリー','ハクサイ'],[]],'タマネギ':[['病気予防'],['イチゴ','ニンジン'],['エンドウ','エダマメ']]};
+function applyComp(p,c){p.companion=true;p.effects=[...c[0]];p.good=[...c[1]];p.bad=[...c[2]];}
 function defMat(){return {pole:{on:false,len:150,dia:16,style:'一本型',per:0},net:{on:false,w:180,len:360,mesh:18}};}
 function defProt(){return {fleece:{on:false,w:180},tunnel:{on:false,cover:'不織布'},mulch:{on:false,w:95,type:'黒'},straw:{on:false,kg:1},husk:{on:false,kg:3}};}
 function normalizePlant(p){const dm=defMat(),dp=defProt();
@@ -308,12 +358,13 @@ function normalizePlant(p){const dm=defMat(),dp=defProt();
   if(!p.prot){p.prot=dp;if(p.protect==='不織布')p.prot.fleece.on=true;if(p.protect==='トンネル')p.prot.tunnel.on=true;if(p.protect==='マルチ')p.prot.mulch.on=true;}
   p.mat={pole:{...dm.pole,...p.mat.pole},net:{...dm.net,...p.mat.net}};
   p.prot=Object.fromEntries(Object.keys(dp).map(k=>[k,{...dp[k],...(p.prot[k]||{})}]));
-  delete p.support;delete p.supLen;delete p.protect;if(!SOWS.includes(p.sow))p.sow='点まき';p.harvM=p.harvM||[];return p;}
+  delete p.support;delete p.supLen;delete p.protect;if(!SOWS.includes(p.sow))p.sow='点まき';p.harvM=p.harvM||[];p.companion=!!p.companion;p.effects=Array.isArray(p.effects)?p.effects:[];p.good=Array.isArray(p.good)?p.good:[];p.bad=Array.isArray(p.bad)?p.bad:[];p.fav=!!p.fav;return p;}
 const PRESET_MAT={'キュウリ':{style:'合掌型',net:true},'エンドウ':{net:true},'ソラマメ':{pole:{len:120,style:'一本型'}},'タマネギ':{husk:true},'ニンニク':{husk:true},'イチゴ':{straw:true},'ホウレンソウ':{fleece:true}};
 function mkPlant(a){
   const p=normalizePlant({id:uid(),name:a[0],cat:a[1],seedM:parseMonths(a[2]),plantM:parseMonths(a[3]),harvM:parseMonths(a[4]),
     rowSp:+a[5]||0,seedSp:+a[6]||0,sow:a[7]||'点まき',perPoint:+a[8]||0,seedlingSp:+a[9]||0,
     support:a[10]||'なし',supLen:+a[11]||0,protect:a[12]||'なし',color:a[13]||PALETTE[Math.floor(Math.random()*PALETTE.length)],memo:''});
+  if(PRESET_COMP[p.name])applyComp(p,PRESET_COMP[p.name]);
   const o=PRESET_MAT[p.name];
   if(o){if(o.style){p.mat.pole.on=true;p.mat.pole.style=o.style;}if(o.pole){p.mat.pole.on=true;Object.assign(p.mat.pole,o.pole);}if(o.net)p.mat.net.on=true;if(o.husk)p.prot.husk.on=true;if(o.straw)p.prot.straw.on=true;if(o.fleece)p.prot.fleece.on=true;}
   return p;}
@@ -329,11 +380,12 @@ function normBeds(beds){const bb=bbox(beds.flatMap(b=>b.pts));return moveBeds(be
 function presetTypes(){const all=POTAGER_BEDS.map(potagerBed);const out=[{id:uid(),name:'ポタジェ全体（①〜⑦）',beds:all}];
   POTAGER_BEDS.forEach((b,i)=>out.push({id:uid(),name:b.label,beds:normBeds([all[i]])}));return out;}
 function normType(t){if(t.beds)return t;return {id:t.id||uid(),name:t.name,beds:[{name:'',shape:t.shape,pts:t.pts,c:t.c}]};}
-function newDB(){return {v:2,presets3:true,settings:{...DEF},plants:PRESETS.filter(a=>DEFAULT_PLANTS.includes(a[0])).map(mkPlant),bedTypes:presetTypes(),projects:[]};}
+function newDB(){return {v:2,presets3:true,comp1:true,settings:{...DEF},plants:PRESETS.filter(a=>DEFAULT_PLANTS.includes(a[0])).map(mkPlant),bedTypes:presetTypes(),projects:[]};}
 function newProject(name){const m=DB.settings.month;const now=Date.now();
   return {id:uid(),name,created:now,updated:now,north:DB.settings.north||0,beds:[],plans:[{id:uid(),name:'春夏プラン',items:[]},{id:uid(),name:'秋冬プラン',items:[]}],activePlan:(m>=2&&m<=7)?0:1};}
 function fixDB(o){o.settings={...DEF,...o.settings};o.plants=(o.plants||[]).map(normalizePlant);o.bedTypes=(o.bedTypes||[]).map(normType);o.projects=o.projects||[];
   if(!o.presets3){o.bedTypes=[...presetTypes(),...o.bedTypes.filter(t=>!OLD_BED_PRESETS.includes(t.name))];o.presets3=true;}
+  if(!o.comp1){o.plants.forEach(p=>{const c=PRESET_COMP[p.name];if(c&&!p.companion&&!p.effects.length&&!p.good.length)applyComp(p,c);});o.comp1=true;}
   o.projects.forEach(p=>{if(p.north==null)p.north=o.settings.north||0;});return o;}
 function migrateV1(o){const d=newDB();d.plants=o.plants||d.plants;d.settings={...DEF,...o.settings};delete d.settings.projectName;
   if(o.beds&&o.beds.length){const now=Date.now();d.projects.push({id:uid(),name:(o.settings&&o.settings.projectName)||'わたしのポタジェ',created:now,updated:now,beds:o.beds,plans:o.plans,activePlan:o.activePlan||0});}
@@ -1233,33 +1285,103 @@ function dupItem(){const it=itemById(sel.id);const p=plantById(it.p);let c=null;
   if(!c)return toast('隣に置けるスペースがありません');pushUndo();items().push(c);sel={t:'item',id:c.id};changed();}
 
 /* ============ 画面：作物一覧 ============ */
+/* ============ 画面：作物一覧 ============ */
 let cropsBack=showHome;
 const gUrl=(q,img)=>`https://www.google.com/search?q=${encodeURIComponent(q)}${img?'&udm=2':''}`;
-const gLinks=name=>`<div class="row" style="gap:6px;margin-top:6px"><a class="btn sm" href="${gUrl(name)}" target="_blank" rel="noopener" data-g>🔍 Google</a><a class="btn sm" href="${gUrl(name,1)}" target="_blank" rel="noopener" data-g>🖼 画像</a><a class="btn sm" href="${gUrl(name+' 育て方')}" target="_blank" rel="noopener" data-g>📖 育て方</a></div>`;
+const gLinks=name=>`<div class="row glinks" style="gap:6px;margin-top:6px"><a class="btn sm" href="${gUrl(name)}" target="_blank" rel="noopener" data-g>🔍 Google</a><a class="btn sm" href="${gUrl(name,1)}" target="_blank" rel="noopener" data-g>🖼 画像</a><a class="btn sm" href="${gUrl(name+' 育て方')}" target="_blank" rel="noopener" data-g>📖 育て方</a></div>`;
 document.addEventListener('click',e=>{const a=e.target.closest('a[data-g]');if(!a)return;e.stopPropagation();if(navigator.onLine===false){e.preventDefault();toast('オフラインのため検索できません。通信できる場所でお試しください');}},true);
+const cfDefault=()=>({cats:[],comp:false,fav:false,meth:[],crop:[],seed:[],plant:[],harv:[],mat:[],eff:[],use:[],logic:'and'});
+ui.cf=ui.cf||cfDefault();ui.csort=ui.csort||'cat';ui.cview=ui.cview||'list';
+const MAT_KEYS=['支柱','ネット','不織布','トンネル','マルチ','稲藁','籾殻'];
+function matKeys(p){const M=p.mat,P=p.prot,k=[];if(M.pole.on)k.push('支柱');if(M.net.on)k.push('ネット');if(P.fleece.on)k.push('不織布');if(P.tunnel.on)k.push('トンネル');if(P.mulch.on)k.push('マルチ');if(P.straw.on)k.push('稲藁');if(P.husk.on)k.push('籾殻');return k;}
+function cropUsage(){const m=new Map();DB.projects.forEach(pr=>pr.plans.forEach(pl=>pl.items.forEach(i=>m.set(i.p,(m.get(i.p)||0)+1))));return m;}
+function cfCount(f){return ['cats','meth','crop','seed','plant','harv','mat','eff','use'].filter(k=>f[k].length).length+(f.comp?1:0)+(f.fav?1:0);}
+function cropMatches(p,f,q,usage){
+  if(q&&!(p.name.includes(q)||(p.memo||'').includes(q)||p.effects.some(e=>e.includes(q))||p.good.some(e=>e.includes(q))))return false;
+  const any=(arr,sel)=>sel.some(x=>arr.includes(x));const c=[];
+  if(f.cats.length)c.push(f.cats.includes(p.cat));
+  if(f.comp)c.push(p.companion);
+  if(f.fav)c.push(p.fav);
+  if(f.meth.length)c.push(f.meth.some(m=>m==='播種'?hasSeed(p):m==='苗'?hasSeedling(p):hasSeed(p)&&p.sow===m));
+  if(f.crop.length)c.push((hasSeed(p)&&any(p.seedM,f.crop))||(hasSeedling(p)&&any(p.plantM,f.crop)));
+  if(f.seed.length)c.push(hasSeed(p)&&any(p.seedM,f.seed));
+  if(f.plant.length)c.push(hasSeedling(p)&&any(p.plantM,f.plant));
+  if(f.harv.length)c.push(any(p.harvM,f.harv));
+  if(f.mat.length)c.push(any(matKeys(p),f.mat));
+  if(f.eff.length)c.push(any(p.effects,f.eff));
+  if(f.use.length){const n=usage.get(p.id)||0;c.push(f.use.some(u=>u==='used'?n>0:n===0));}
+  if(!c.length)return true;return f.logic==='or'?c.some(Boolean):c.every(Boolean);}
+const SORTS=[['cat','分類順'],['name','名前順'],['soon','作付けが近い順'],['seed','種まきが早い順'],['plant','植え付けが早い順'],['harv','収穫が早い順'],['used','よく使う順']];
+function cropSort(list,usage){const m=S.settings.month;const first=a=>a.length?Math.min(...a):99;const fromNow=a=>a.length?Math.min(...a.map(x=>(x-m+12)%12)):99;
+  const key={cat:p=>CATS.indexOf(p.cat)*1000,name:()=>0,seed:p=>hasSeed(p)?first(p.seedM):99,plant:p=>hasSeedling(p)?first(p.plantM):99,harv:p=>first(p.harvM),
+    soon:p=>Math.min(hasSeed(p)?fromNow(p.seedM):99,hasSeedling(p)?fromNow(p.plantM):99),used:p=>-(usage.get(p.id)||0)}[ui.csort]||(()=>0);
+  return list.sort((a,b)=>(b.fav-a.fav)||(key(a)-key(b))||a.name.localeCompare(b.name,'ja'));}
+function monthStrip(p,labels){const m=S.settings.month;const lane=(arr,cls,l)=>`<b>${l}</b>`+Array.from({length:12},(_,i)=>`<i class="${arr.includes(i+1)?cls:''} ${i+1===m?'cur':''}" title="${i+1}月"></i>`).join('');
+  return `<div class="strip" aria-label="${esc(p.name)}の栽培時期">${labels?`<b></b>`+Array.from({length:12},(_,i)=>`<em class="${i+1===m?'cur':''}">${i+1}</em>`).join(''):''}${lane(hasSeed(p)?p.seedM:[],'s','播')}${lane(hasSeedling(p)?p.plantM:[],'p','植')}${lane(p.harvM,'h','収')}</div>`;}
+const monthHead=()=>{const m=S.settings.month;return `<div class="mhead"><span></span>${Array.from({length:12},(_,i)=>`<span class="${i+1===m?'cur':''}">${i+1}</span>`).join('')}</div>`;};
 function showCrops(back){if(back)cropsBack=back;
-  showPage('作物一覧',`<p class="muted">ここで登録した作物の時期・株間・条間・資材が、花壇に配置するときの円や線の大きさ、候補の絞り込み、資材の計算に使われます。変更はすべての計画に反映されます。</p>
-  <div class="row"><button class="btn pri" data-c="add">＋ 作物を追加</button><button class="btn" data-c="presets">候補からまとめて追加</button><button class="btn" data-c="csv">一覧表で一括登録</button><button class="btn" data-c="table">まとめて削除</button></div>
-  <input class="inp" id="cq" style="margin-top:12px" placeholder="名前で絞り込み" value="${esc(ui.cq)}">
-  <div class="seg" id="cseg">${[['all','すべて'],...CATS.map(c=>[c,c]),['s','播種できる'],['p','苗で植える'],['m',`${S.settings.month}月に作付け`]].map(([k,l])=>`<button data-cat="${k}" class="${ui.ccat===k?'on':''}">${l}</button>`).join('')}</div>
-  <div id="clist"></div>`,{back:()=>cropsBack(),refresh:renderCropList});
-  renderCropList();
+  showPage('作物一覧',`<div class="row"><button class="btn pri" data-c="add">＋ 作物を追加</button><button class="btn" data-c="presets">候補からまとめて追加</button><button class="btn" data-c="imp">📥 読み込む</button><button class="btn" data-c="exp">📤 書き出す</button><button class="btn" data-c="table">まとめて削除</button></div>
+  <div class="csearch"><input class="inp" id="cq" placeholder="名前・メモ・効果・相性の良い作物で検索" value="${esc(ui.cq)}">
+    <select class="inp" id="csort" aria-label="並び順">${SORTS.map(([k,l])=>`<option value="${k}" ${ui.csort===k?'selected':''}>${l}</option>`).join('')}</select>
+    <div class="seg" style="margin:0"><button data-view="list" class="${ui.cview==='list'?'on':''}">一覧</button><button data-view="cal" class="${ui.cview==='cal'?'on':''}">カレンダー</button></div></div>
+  <div id="cquick"></div><div id="cfilter"></div><div id="clist"></div>`,{back:()=>cropsBack(),refresh:()=>{renderCropFilters();renderCropList();}});
+  renderCropFilters();renderCropList();
   $('#cq').oninput=e=>{ui.cq=e.target.value;renderCropList();};
-  $('#pgBody').onclick=e=>{if(e.target.closest('a[data-g]'))return;const c=e.target.closest('[data-c]');if(c){const k=c.dataset.c;if(k==='add')plantEditor(null);if(k==='presets')presetsModal();if(k==='csv')csvModal();if(k==='table')tableModal();return;}
-    const g=e.target.closest('[data-cat]');if(g){ui.ccat=g.dataset.cat;$$('#cseg button').forEach(x=>x.classList.toggle('on',x.dataset.cat===ui.ccat));renderCropList();return;}
+  $('#csort').onchange=e=>{ui.csort=e.target.value;renderCropList();};
+  $('#cfilter').addEventListener('toggle',e=>{if(e.target.id==='fbox')ui.fopen=e.target.open;},true);
+  $('#pgBody').onclick=e=>{if(e.target.closest('a[data-g]'))return;const f=ui.cf;
+    const c=e.target.closest('[data-c]');if(c){const k=c.dataset.c;
+      if(k==='add')plantEditor(null);if(k==='presets')presetsModal();if(k==='csv')csvModal();if(k==='imp')cropImportModal();if(k==='exp')cropExportModal();if(k==='table')tableModal();
+      if(k==='fclear'){ui.cf=cfDefault();renderCropFilters();renderCropList();}
+      if(k==='fsave'){if(!cfCount(f))return toast('保存する条件を選んでください');promptText('検索条件を保存','名前（例：秋まきのコンパニオン）','',v=>{(S.settings.savedFilters=S.settings.savedFilters||[]).push({id:uid(),name:v,f:JSON.parse(JSON.stringify(f))});save();renderCropFilters();toast('検索条件を保存しました');});}
+      return;}
+    const sv=e.target.closest('[data-sv]');if(sv){const s=(S.settings.savedFilters||[]).find(x=>x.id===sv.dataset.sv);if(s){ui.cf={...cfDefault(),...JSON.parse(JSON.stringify(s.f))};renderCropFilters();renderCropList();toast(`「${s.name}」で絞り込みました`);}return;}
+    const sd=e.target.closest('[data-svdel]');if(sd){S.settings.savedFilters=(S.settings.savedFilters||[]).filter(x=>x.id!==sd.dataset.svdel);save();renderCropFilters();return;}
+    const v=e.target.closest('[data-view]');if(v){ui.cview=v.dataset.view;$$('[data-view]').forEach(x=>x.classList.toggle('on',x===v));renderCropList();return;}
+    const q=e.target.closest('[data-q]');if(q){const k=q.dataset.q,m=S.settings.month;
+      if(k==='all'){ui.cf={...cfDefault(),logic:f.logic};}else if(k==='comp')f.comp=!f.comp;else if(k==='fav')f.fav=!f.fav;else if(k==='now')f.crop=f.crop.length===1&&f.crop[0]===m?[]:[m];
+      else f.cats=f.cats.includes(k)?f.cats.filter(x=>x!==k):[...f.cats,k];renderCropFilters();renderCropList();return;}
+    const fb=e.target.closest('[data-f]');if(fb){const g=fb.dataset.f,val=/^\d+$/.test(fb.dataset.v)?+fb.dataset.v:fb.dataset.v;
+      if(g==='logic')f.logic=val;else if(g==='comp'||g==='fav')f[g]=!f[g];else f[g]=f[g].includes(val)?f[g].filter(x=>x!==val):[...f[g],val];renderCropFilters();renderCropList();return;}
+    const st=e.target.closest('[data-fav]');if(st){const p=plantById(st.dataset.fav);if(p){p.fav=!p.fav;save();renderCropList();toast(p.fav?`${p.name}をお気に入りにしました`:`${p.name}をお気に入りから外しました`);}return;}
     const r=e.target.closest('[data-crop]');if(r)plantEditor(plantById(r.dataset.crop));};}
-function renderCropList(){const el=$('#clist');if(!el)return;const q=ui.cq.trim(),c=ui.ccat,m=S.settings.month;
-  const list=DB.plants.filter(p=>(!q||p.name.includes(q))&&(c==='all'||p.cat===c||(c==='s'&&hasSeed(p))||(c==='p'&&hasSeedling(p))||(c==='m'&&((hasSeed(p)&&p.seedM.includes(m))||(hasSeedling(p)&&p.plantM.includes(m))))))
-    .sort((a,b)=>CATS.indexOf(a.cat)-CATS.indexOf(b.cat)||a.name.localeCompare(b.name,'ja'));
-  el.innerHTML=`<p class="muted">${list.length}品目（全${DB.plants.length}品目）　タップで編集</p>`+(list.length?list.map(p=>{const ms=matSummary(p);return `<div class="crow" data-crop="${p.id}"><span class="dot" style="background:${p.color};width:18px;height:18px"></span><div class="nm"><b>${esc(p.name)}</b> <span class="tag">${esc(p.cat)}</span>
-    ${hasSeed(p)?`<div>━ 播種 ${fmtMonths(p.seedM)}・${p.sow==='ばらまき'?`ばらまき ${p.perPoint}粒/㎡`:`条間${p.rowSp}cm／株間${p.seedSp}cm・${p.sow}`}</div>`:''}${hasSeedling(p)?`<div>● 苗 ${fmtMonths(p.plantM)}・株間${p.seedlingSp}cm</div>`:''}
-    ${p.harvM.length?`<div>収穫 ${fmtMonths(p.harvM)}</div>`:''}${ms?`<div>資材 ${esc(ms)}</div>`:''}${gLinks(p.name)}</div><span class="ed" style="display:grid;place-items:center">✎</span></div>`;}).join(''):'<div class="box muted">該当する作物がありません。</div>');}
+function renderCropFilters(){const f=ui.cf,m=S.settings.month,n=cfCount(f);const on=(b)=>b?'on':'';
+  const qs=[['all','すべて',!n],...CATS.map(c=>[c,c,f.cats.includes(c)]),['comp','🌼 コンパニオン',f.comp],['fav','★ お気に入り',f.fav],['now',`${m}月に作付け`,f.crop.length===1&&f.crop[0]===m]];
+  const saved=S.settings.savedFilters||[];
+  $('#cquick').innerHTML=`<div class="seg">${qs.map(([k,l,a])=>`<button data-q="${k}" class="${on(a)}">${l}</button>`).join('')}${saved.map(s=>`<button data-sv="${s.id}" class="saved">🔖 ${esc(s.name)}</button>`).join('')}</div>`;
+  const chip=(g,v,l,a)=>`<button data-f="${g}" data-v="${v}" class="${on(a)}">${l}</button>`;
+  const months=g=>`<div class="seg mseg">${Array.from({length:12},(_,i)=>chip(g,i+1,`${i+1}月`,f[g].includes(i+1))).join('')}</div>`;
+  $('#cfilter').innerHTML=`<details class="fbox" id="fbox" ${ui.fopen?'open':''}><summary>🔎 詳しい条件で絞り込む ${n?`<span class="tag">${n}つの条件・${f.logic==='and'?'すべて':'どれか'}</span>`:''}</summary>
+  <div class="fl"><label>分類・印</label><div class="seg">${CATS.map(c=>chip('cats',c,c,f.cats.includes(c))).join('')}${chip('comp',1,'🌼 コンパニオン',f.comp)}${chip('fav',1,'★ お気に入り',f.fav)}</div></div>
+  <div class="fl"><label>育て方</label><div class="seg">${[['播種','種から'],['苗','苗から'],['点まき','点まき'],['すじまき','すじまき'],['ばらまき','ばらまき']].map(([v,l])=>chip('meth',v,l,f.meth.includes(v))).join('')}</div></div>
+  <div class="fl"><label>作付けの時期（種まき・植え付けのどちらか）</label>${months('crop')}</div>
+  <div class="fl"><label>種まきの時期</label>${months('seed')}</div>
+  <div class="fl"><label>植え付けの時期</label>${months('plant')}</div>
+  <div class="fl"><label>収穫の時期</label>${months('harv')}</div>
+  <div class="fl"><label>必要な資材</label><div class="seg">${MAT_KEYS.map(k=>chip('mat',k,k,f.mat.includes(k))).join('')}</div></div>
+  <div class="fl"><label>コンパニオンの効果</label><div class="seg">${EFFECTS.map(k=>chip('eff',k,k,f.eff.includes(k))).join('')}</div></div>
+  <div class="fl"><label>使用状況</label><div class="seg">${chip('use','used','計画で使用中',f.use.includes('used'))}${chip('use','unused','未使用',f.use.includes('unused'))}</div></div>
+  <div class="fl"><label>条件の組み合わせ</label><div class="seg">${chip('logic','and','すべての条件に当てはまる（かつ）',f.logic==='and')}${chip('logic','or','どれかに当てはまる（または）',f.logic==='or')}</div>
+    <p class="muted">同じ項目の中で複数選んだときは、そのどれかに当てはまればよい扱いです（例：種まき 3月・4月 → 3月か4月にまけるもの）。</p></div>
+  <div class="row"><button class="btn" data-c="fclear">条件をクリア</button><button class="btn" data-c="fsave">この条件を保存</button></div>
+  ${saved.length?`<div class="fl"><label>保存した条件</label><div class="seg">${saved.map(s=>`<button data-svdel="${s.id}" class="saved">🔖 ${esc(s.name)} ✕</button>`).join('')}</div><p class="muted">✕を押すと削除します。上の一覧のボタンで呼び出せます。</p></div>`:''}</details>`;}
+function renderCropList(){const el=$('#clist');if(!el)return;const usage=cropUsage();const q=ui.cq.trim();
+  const list=cropSort(DB.plants.filter(p=>cropMatches(p,ui.cf,q,usage)),usage);const cal=ui.cview==='cal';
+  const head=`<div class="clhead"><span></span><span>${list.length}品目 / 全${DB.plants.length}品目</span>${monthHead()}<span></span></div>`;
+  const legend=`<div class="legend" style="margin:6px 0"><span><i class="lg s"></i>種まき</span><span><i class="lg p"></i>植え付け</span><span><i class="lg h"></i>収穫</span><span><i class="lg cur"></i>${S.settings.month}月（今の作付け月）</span></div>`;
+  el.innerHTML=legend+`<div class="clist ${cal?'cal':''}">${head}`+(list.length?list.map(p=>{const ms=matSummary(p),u=usage.get(p.id)||0;
+    return `<div class="crow2" data-crop="${p.id}"><button class="star ${p.fav?'on':''}" data-fav="${p.id}" aria-label="お気に入り">${p.fav?'★':'☆'}</button>
+    <div class="cn"><div class="cn1"><span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="tag">${esc(p.cat)}</span>${p.companion?'<span class="tag comp">🌼 コンパニオン</span>':''}${u?`<span class="tag use">使用中 ${u}</span>`:''}</div>
+    ${cal?'':`<div class="cd">${hasSeed(p)?`<div>━ 種まき ${fmtMonths(p.seedM)}・${p.sow==='ばらまき'?`ばらまき ${p.perPoint}粒/㎡`:`条間${p.rowSp}／株間${p.seedSp}cm・${p.sow}`}</div>`:''}${hasSeedling(p)?`<div>● 苗 ${fmtMonths(p.plantM)}・株間${p.seedlingSp}cm</div>`:''}
+      ${p.harvM.length?`<div>収穫 ${fmtMonths(p.harvM)}</div>`:''}${ms?`<div>資材 ${esc(ms)}</div>`:''}${p.companion&&(p.effects.length||p.good.length)?`<div class="good">🌼 ${esc(p.effects.join('・'))}${p.good.length?`　相性◎ ${esc(p.good.join('・'))}`:''}</div>`:''}${p.bad.length?`<div class="bad">相性× ${esc(p.bad.join('・'))}</div>`:''}
+      ${gLinks(p.name)}</div>`}</div>
+    ${monthStrip(p,true)}<span class="ed" style="display:grid;place-items:center">✎</span></div>`;}).join('')+'</div>':'</div><div class="box muted">条件に当てはまる作物がありません。条件を減らすか「条件をクリア」を押してください。</div>');}
 
 function plantList(){const m=S.settings.month,all=S.settings.showAllSeasons,q=ui.q.trim();let n=0;
-  const html=CATS.concat(['その他']).map(cat=>{const ps=S.plants.filter(p=>(CATS.includes(p.cat)?p.cat:'その他')===cat&&(!q||p.name.includes(q)));
+  const html=CATS.concat(['その他']).map(cat=>{const ps=S.plants.filter(p=>(CATS.includes(p.cat)?p.cat:'その他')===cat&&(!q||p.name.includes(q))).sort((a,b)=>(b.fav-a.fav)||a.name.localeCompare(b.name,'ja'));
     const rows=ps.map(p=>{const cs=hasSeed(p),cp=hasSeedling(p),is=cs&&p.seedM.includes(m),ip=cp&&p.plantM.includes(m);if(!all&&!is&&!ip)return '';n++;
       const act=active.pid===p.id;
-      return `<div class="pl ${act?'act':''}"><span class="dot" style="background:${p.color}"></span><div class="nm"><b>${esc(p.name)}</b><span>${cs?`播種 ${fmtMonths(p.seedM)}`:''}${cs&&cp?'／':''}${cp?`苗 ${fmtMonths(p.plantM)}`:''}${p.harvM.length?`／収穫 ${fmtMonths(p.harvM)}`:''}</span></div>
+      return `<div class="pl ${act?'act':''}"><span class="dot" style="background:${p.color}"></span><div class="nm"><b>${p.fav?'<span style="color:#e6b422">★</span>':''}${esc(p.name)}${p.companion?' <span class="tag comp">🌼</span>':''}</b><span>${cs?`播種 ${fmtMonths(p.seedM)}`:''}${cs&&cp?'／':''}${cp?`苗 ${fmtMonths(p.plantM)}`:''}${p.harvM.length?`／収穫 ${fmtMonths(p.harvM)}`:''}</span></div>
       ${cp&&(ip||all)?`<button class="pb ${act&&active.m==='s'?'on':''} ${ip?'':'off'}" data-act="pick" data-id="${p.id}" data-m="s" title="株間${p.seedlingSp}cm">苗${ip?'':'※'}</button>`:''}
       ${cs&&(is||all)?`<button class="pb ${act&&active.m==='r'?'on':''} ${is?'':'off'}" data-act="pick" data-id="${p.id}" data-m="r" title="条間${p.rowSp}cm 株間${p.seedSp}cm">播種${is?'':'※'}</button>`:''}
       <button class="ed" data-act="editPlant" data-id="${p.id}" aria-label="編集">✎</button></div>`;}).join('');
@@ -1286,11 +1408,12 @@ function tabSum(){const t=tally(items());const pl=plan();
       `<tr><td>━ ${esc(p.name)}<br><span class="muted">始点→終点</span></td><td class="n">${fmt(i.x1-o.x)}<br>${fmt(i.x2-o.x)}</td><td class="n">${fmt(i.y1-o.y)}<br>${fmt(i.y2-o.y)}</td><td class="n">${fmt(rowLen(i))}</td></tr>`).join('')}</table></div></details>`;}
   h+=calendarHtml(t.map(x=>x.p));
   return h;}
+function pairRel(a,b){const inL=(list,n)=>list.some(x=>x&&(n.includes(x)||x.includes(n)));const pr=L=>L.some(([u,v])=>(a.name.includes(u)&&b.name.includes(v))||(a.name.includes(v)&&b.name.includes(u)));
+  if(inL(a.bad,b.name)||inL(b.bad,a.name)||pr(BAD_PAIRS))return 'bad';if(inL(a.good,b.name)||inL(b.good,a.name)||pr(GOOD_PAIRS))return 'good';return null;}
 function companionHtml(){const its=items().map(i=>({i,p:plantById(i.p),s:shapeOf(i)})).filter(x=>x.p&&x.s);const bad=new Set(),good=new Set();
   const has=(n,k)=>n.includes(k);
   for(let x=0;x<its.length;x++)for(let y=x+1;y<its.length;y++){const A=its[x],B=its[y];if(A.p===B.p)continue;
-    const pr=L=>L.find(([u,v])=>(has(A.p.name,u)&&has(B.p.name,v))||(has(A.p.name,v)&&has(B.p.name,u)));
-    const bp=pr(BAD_PAIRS),gp=pr(GOOD_PAIRS);if(!bp&&!gp)continue;if(coreDist(A.s,B.s)-A.s.r-B.s.r>40)continue;
+    const rel=pairRel(A.p,B.p);if(!rel)continue;const bp=rel==='bad',gp=rel==='good';if(coreDist(A.s,B.s)-A.s.r-B.s.r>40)continue;
     const key=[A.p.name,B.p.name].sort().join('と');if(bp)bad.add(key);else good.add(key);}
   if(!bad.size&&!good.size)return '';
   return `<h3>相性チェック（40cm以内）</h3>${[...bad].map(k=>`<div class="bad">▲ ${esc(k)}：近くに植えるのは避けたい組み合わせ</div>`).join('')}${[...good].map(k=>`<div class="good">◎ ${esc(k)}：相性の良い組み合わせ</div>`).join('')}<p class="muted">一般的な目安です。</p>`;}
@@ -1321,13 +1444,14 @@ function calendarHtml(ps){if(!ps.length)ps=S.plants.filter(p=>items().some(i=>i.
 /* ============ 植物の登録 ============ */
 function monthsPicker(key,arr){return `<div class="months" data-mk="${key}">${Array.from({length:12},(_,i)=>`<button type="button" data-mv="${i+1}" class="${arr.includes(i+1)?'on':''}">${i+1}月</button>`).join('')}</div>`;}
 const opt=(arr,v,unit='')=>arr.map(x=>`<option value="${x}" ${String(x)===String(v)?'selected':''}>${x}${unit}</option>`).join('');
-function plantEditor(p){const isNew=!p;p=p?JSON.parse(JSON.stringify(p)):normalizePlant({id:uid(),name:'',cat:'野菜',seedM:[],plantM:[],harvM:[],rowSp:30,seedSp:20,sow:'点まき',perPoint:3,seedlingSp:30,color:PALETTE[DB.plants.length%PALETTE.length],memo:''});
+function plantEditor(p,asCopy){const isNew=!p||!!asCopy;p=p?JSON.parse(JSON.stringify(p)):normalizePlant({id:uid(),name:'',cat:'野菜',seedM:[],plantM:[],harvM:[],rowSp:30,seedSp:20,sow:'点まき',perPoint:3,seedlingSp:30,color:PALETTE[DB.plants.length%PALETTE.length],memo:''});
+  if(asCopy){p.id=uid();p.name=p.name+'のコピー';p.fav=false;}
   const orig=isNew?null:plantById(p.id);const M=p.mat,P=p.prot;
   const chk=(id,on,label)=>`<label class="sw"><input type="checkbox" id="${id}" data-tg="${id}" ${on?'checked':''}><b>${label}</b></label>`;
   const sub=(id,on,html)=>`<div class="box" data-sub="${id}" style="${on?'':'display:none'}">${html}</div>`;
   openModal(isNew?'作物を登録':'作物を編集',`
   <div class="grid3"><div class="fld" style="grid-column:span 2"><label>名前</label><input class="inp" id="fN" value="${esc(p.name)}" placeholder="例：ミニトマト"></div><div class="fld"><label>色</label><input class="inp" id="fC" type="color" value="${p.color}" style="padding:2px"></div></div>
-  <div class="fld"><label>分類</label><select class="inp" id="fK">${opt(CATS,p.cat)}</select></div>
+  <div class="grid2"><div class="fld"><label>分類</label><select class="inp" id="fK">${opt(CATS,p.cat)}</select></div><div class="fld"><label>印</label><label class="sw"><input type="checkbox" id="fFav" ${p.fav?'checked':''}>★ お気に入り（一覧の上に表示）</label></div></div>
   <div id="fG">${gLinks(p.name||'家庭菜園')}</div>
   <h3>播種（種まき）</h3><div class="fld"><label>種まきの時期</label>${monthsPicker('seedM',p.seedM)}</div>
   <div class="fld"><label>まき方</label><div class="seg" id="fSw">${SOWS.map(s=>`<button type="button" data-sw="${s}" class="${p.sow===s?'on':''}">${s}${s==='点まき'?'（穴ごと・線で描画）':s==='すじまき'?'（線で描画）':'（範囲で描画）'}</button>`).join('')}</div></div>
@@ -1336,6 +1460,13 @@ function plantEditor(p){const isNew=!p;p=p?JSON.parse(JSON.stringify(p)):normali
   <h3>苗の植え付け — 円で描画</h3><div class="fld"><label>植え付けの時期</label>${monthsPicker('plantM',p.plantM)}</div>
   <div class="fld"><label>株間 cm（円の直径）</label><input class="inp" id="fPS" type="number" inputmode="decimal" value="${p.seedlingSp}"></div>
   <h3>収穫</h3><div class="fld"><label>収穫の時期</label>${monthsPicker('harvM',p.harvM)}</div>
+  <h3>コンパニオンプランツ・相性</h3>
+  <label class="sw"><input type="checkbox" id="fCp" data-tg="fCp" ${p.companion?'checked':''}><b>🌼 コンパニオンプランツとして使う</b></label>
+  <div class="box" data-sub="fCp" style="${p.companion?'':'display:none'}"><div class="fld"><label>効果（複数選択可）</label><div class="seg" id="fEf">${EFFECTS.map(e=>`<button type="button" data-ef="${esc(e)}" class="${p.effects.includes(e)?'on':''}">${e}</button>`).join('')}</div></div>
+    <p class="muted" style="margin:0">野菜・ハーブ・花のどの分類でも、コンパニオンプランツとして印を付けられます。</p></div>
+  <div class="grid2"><div class="fld"><label>相性の良い作物（「・」区切り）</label><input class="inp" id="fGd" value="${esc(p.good.join('・'))}" placeholder="例：トマト・ナス"></div>
+  <div class="fld"><label>相性の悪い作物（「・」区切り）</label><input class="inp" id="fBd" value="${esc(p.bad.join('・'))}" placeholder="例：エンドウ"></div></div>
+  <p class="muted" style="margin-top:0">植え付け画面の「集計」で、40cm以内に植えた組み合わせをチェックします。</p>
   <h3>資材 — 支柱・ネット（複数選択可）</h3>
   ${chk('mPole',M.pole.on,'支柱')}${sub('mPole',M.pole.on,`<div class="fld"><label>立て方</label><div class="seg" id="fSt">${POLE_STYLES.map(s=>`<button type="button" data-st="${s}" class="${M.pole.style===s?'on':''}">${s}</button>`).join('')}</div><div class="muted" id="fStN">${STYLE_NOTE[M.pole.style]}</div></div>
     <div class="grid3"><div class="fld"><label>長さ</label><select class="inp" id="mPL">${opt(POLE_LENS,M.pole.len,'cm')}</select></div><div class="fld"><label>太さ</label><select class="inp" id="mPD">${opt(POLE_DIAS,M.pole.dia,'mm')}</select></div>
@@ -1350,7 +1481,9 @@ function plantEditor(p){const isNew=!p;p=p?JSON.parse(JSON.stringify(p)):normali
   ${chk('pH',P.husk.on,'籾殻')}${sub('pH',P.husk.on,`<div class="fld"><label>1㎡あたり kg（厚さ3cmで約3kg）</label><input class="inp" id="pHK" type="number" inputmode="decimal" step="0.1" value="${P.husk.kg}"></div>`)}
   <div class="fld" style="margin-top:10px"><label>メモ</label><input class="inp" id="fM" value="${esc(p.memo||'')}"></div>
   <p class="muted">種まきの時期が空欄なら「播種」、植え付けの時期が空欄なら「苗」は選べません。</p>`,
-  `${isNew?'':`<button class="btn dan" id="fDel">削除</button>`}<button class="btn" data-close>やめる</button><button class="btn pri" id="fSave">保存する</button>`);
+  `${isNew?'':`<button class="btn dan" id="fDel">削除</button><button class="btn" id="fDup">複製して新規</button>`}<button class="btn" data-close>やめる</button><button class="btn pri" id="fSave">保存する</button>`);
+  $$('#fEf button').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+  if($('#fDup'))$('#fDup').onclick=()=>plantEditor(plantById(p.id),true);
   $$('#mb .months button').forEach(x=>x.onclick=()=>x.classList.toggle('on'));
   $$('#mb [data-tg]').forEach(c=>c.onchange=()=>{$(`#mb [data-sub="${c.dataset.tg}"]`).style.display=c.checked?'':'none';});
   let sow=p.sow,style=M.pole.style;
@@ -1364,10 +1497,12 @@ function plantEditor(p){const isNew=!p;p=p?JSON.parse(JSON.stringify(p)):normali
     const np={...p,name,cat:$('#fK').value,color:$('#fC').value,seedM:mk('seedM'),plantM:mk('plantM'),harvM:mk('harvM'),sow,
       rowSp:+$('#fRS').value||0,seedSp:sow==='ばらまき'?(+$('#fSS2').value||0):(+$('#fSS').value||0),perPoint:+$('#fPP').value||0,seedlingSp:+$('#fPS').value||0,memo:$('#fM').value,
       mat:{pole:{on:on('mPole'),style,len:+$('#mPL').value,dia:+$('#mPD').value,per:+$('#mPN').value||0},net:{on:on('mNet'),w:+$('#mNW').value,len:+$('#mNL').value,mesh:+$('#mNM').value}},
+      companion:on('fCp'),effects:$$('#fEf button.on').map(b=>b.dataset.ef),good:$('#fGd').value.split(/[・、,\/\s]+/).map(x=>x.trim()).filter(Boolean),bad:$('#fBd').value.split(/[・、,\/\s]+/).map(x=>x.trim()).filter(Boolean),fav:$('#fFav').checked,
       prot:{fleece:{on:on('pF'),w:+$('#pFW').value},tunnel:{on:on('pT'),cover:$('#pTC').value},mulch:{on:on('pM'),w:+$('#pMW').value,type:$('#pMT').value},straw:{on:on('pS'),kg:+$('#pSK').value||0},husk:{on:on('pH'),kg:+$('#pHK').value||0}}};
     if(np.seedM.length&&sow!=='ばらまき'&&(!np.rowSp||!np.seedSp))return toast('播種する場合は条間と株間を入力してください');
     if(np.seedM.length&&sow==='ばらまき'&&!np.perPoint)return toast('ばらまきの場合は1㎡あたりの種の数を入力してください');
     if(np.plantM.length&&!np.seedlingSp)return toast('苗を植える場合は株間を入力してください');
+    if(isNew&&DB.plants.some(x=>x.name===np.name))return toast('同じ名前の作物がすでにあります。名前を変えてください');
     pushUndo();if(isNew)DB.plants.push(np);else Object.assign(orig,np);closeModal();changed();toast(`${name}を保存しました`);};
   if(!isNew)$('#fDel').onclick=()=>{const n=allPlans().reduce((a,pl)=>a+pl.items.filter(i=>i.p===p.id).length,0);closeModal();
     askConfirm(`${p.name}を削除しますか？${n?`配置済みの${n}件も消えます。`:''}`,()=>{pushUndo();DB.plants=DB.plants.filter(x=>x.id!==p.id);allPlans().forEach(pl=>pl.items=pl.items.filter(i=>i.p!==p.id));if(active.pid===p.id)active={pid:null,m:null};changed();});};
@@ -1538,6 +1673,139 @@ function openExport(fromFinish){const hasDims=planDims().length>0;const safe=s=>
     const urls=pages.map(c=>c.toDataURL('image/png'));const files=urls.map((u,i)=>({name:`${base}-${i+1}.png`,blob:dataURLtoBlob(u)}));
     $('#exPrev').innerHTML=`<p class="muted">画像を長押しでも保存できます。</p>`+urls.map(u=>`<img src="${u}" alt="出力画像" style="width:100%;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;${NATIVE?'-webkit-touch-callout:none':''}">`).join('');
     deliverFiles(files);};}
+
+/* ============ 作物リストの読み込み・書き出し（Excel / CSV） ============ */
+const numv=v=>{const n=parseFloat(String(v).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;};
+const mTxt=a=>fmtMonths(a).replace('月','').replace(/-/g,'〜');
+function monthVal(v){const s=String(v??'').trim();if(/^\d+(\.\d+)?$/.test(s)&&+s>=60){const d=new Date(Date.UTC(1899,11,30)+Math.round(+s)*864e5);return `${d.getUTCMonth()+1}-${d.getUTCDate()}`;}return s;}
+const CROP_COLS=[
+ ['名前',p=>p.name,(p,v)=>{p.name=v;}],
+ ['分類',p=>p.cat,(p,v)=>{p.cat=CATS.includes(v)?v:'野菜';}],
+ ['播種月',p=>mTxt(p.seedM),(p,v)=>{p.seedM=parseMonths(monthVal(v));}],
+ ['植付月',p=>mTxt(p.plantM),(p,v)=>{p.plantM=parseMonths(monthVal(v));}],
+ ['収穫月',p=>mTxt(p.harvM),(p,v)=>{p.harvM=parseMonths(monthVal(v));}],
+ ['まき方',p=>p.sow,(p,v)=>{p.sow=SOWS.includes(v)?v:'点まき';}],
+ ['条間cm',p=>p.rowSp,(p,v)=>{p.rowSp=numv(v);}],
+ ['株間cm(播種)',p=>p.seedSp,(p,v)=>{p.seedSp=numv(v);}],
+ ['粒数',p=>p.perPoint,(p,v)=>{p.perPoint=numv(v);}],
+ ['苗の株間cm',p=>p.seedlingSp,(p,v)=>{p.seedlingSp=numv(v);}],
+ ['支柱の立て方',p=>p.mat.pole.on?p.mat.pole.style:'なし',(p,v)=>{p.mat.pole.on=POLE_STYLES.includes(v);if(p.mat.pole.on)p.mat.pole.style=v;}],
+ ['支柱長cm',p=>p.mat.pole.len,(p,v)=>{if(numv(v))p.mat.pole.len=numv(v);}],
+ ['支柱太さmm',p=>p.mat.pole.dia,(p,v)=>{if(numv(v))p.mat.pole.dia=numv(v);}],
+ ['1株あたり本数',p=>p.mat.pole.per||'',(p,v)=>{p.mat.pole.per=numv(v);}],
+ ['ネット幅cm',p=>p.mat.net.on?p.mat.net.w:'',(p,v)=>{const n=numv(v);p.mat.net.on=n>0;if(n>0)p.mat.net.w=n;}],
+ ['ネット長さcm',p=>p.mat.net.len,(p,v)=>{if(numv(v))p.mat.net.len=numv(v);}],
+ ['ネット網目cm',p=>p.mat.net.mesh,(p,v)=>{if(numv(v))p.mat.net.mesh=numv(v);}],
+ ['不織布幅cm',p=>p.prot.fleece.on?p.prot.fleece.w:'',(p,v)=>{const n=numv(v);p.prot.fleece.on=n>0;if(n>0)p.prot.fleece.w=n;}],
+ ['トンネル被覆',p=>p.prot.tunnel.on?p.prot.tunnel.cover:'',(p,v)=>{p.prot.tunnel.on=TUNNEL_COVER.includes(v);if(p.prot.tunnel.on)p.prot.tunnel.cover=v;}],
+ ['マルチ幅cm',p=>p.prot.mulch.on?p.prot.mulch.w:'',(p,v)=>{const n=numv(v);p.prot.mulch.on=n>0;if(n>0)p.prot.mulch.w=n;}],
+ ['マルチ種類',p=>p.prot.mulch.type,(p,v)=>{if(MULCH_T.includes(v))p.prot.mulch.type=v;}],
+ ['稲藁kg/㎡',p=>p.prot.straw.on?p.prot.straw.kg:'',(p,v)=>{const n=numv(v);p.prot.straw.on=n>0;if(n>0)p.prot.straw.kg=n;}],
+ ['籾殻kg/㎡',p=>p.prot.husk.on?p.prot.husk.kg:'',(p,v)=>{const n=numv(v);p.prot.husk.on=n>0;if(n>0)p.prot.husk.kg=n;}],
+ ['コンパニオン',p=>p.companion?'○':'',(p,v)=>{p.companion=/^(○|◯|〇|1|true|はい|yes|y|✓)$/i.test(String(v).trim());}],
+ ['効果',p=>p.effects.join('・'),(p,v)=>{p.effects=String(v).split(/[・、,\/\s]+/).map(x=>x.trim()).filter(Boolean);}],
+ ['相性の良い作物',p=>p.good.join('・'),(p,v)=>{p.good=String(v).split(/[・、,\/\s]+/).map(x=>x.trim()).filter(Boolean);}],
+ ['相性の悪い作物',p=>p.bad.join('・'),(p,v)=>{p.bad=String(v).split(/[・、,\/\s]+/).map(x=>x.trim()).filter(Boolean);}],
+ ['色',p=>p.color,(p,v)=>{const s=String(v).trim();if(/^#?[0-9a-f]{6}$/i.test(s))p.color=s[0]==='#'?s:'#'+s;}],
+ ['メモ',p=>p.memo||'',(p,v)=>{p.memo=String(v);}],
+];
+const TEXT_COLS=new Set(['コンパニオン','効果','相性の良い作物','相性の悪い作物','名前','分類','播種月','植付月','収穫月','まき方','支柱の立て方','トンネル被覆','マルチ種類','色','メモ']);
+const normH=s=>String(s??'').replace(/\s/g,'').replace(/（/g,'(').replace(/）/g,')').replace(/m2/g,'㎡');
+const HEAD_ALIAS={'株間cm':'株間cm(播種)','支柱長':'支柱長cm','品目':'名前','作物名':'名前'};
+function plantsToRows(list){return [CROP_COLS.map(c=>c[0]),...(list||DB.plants).map(p=>CROP_COLS.map(c=>{const v=c[1](p);return v===0?'':v;}))];}
+function rowsToPlants(rows){rows=rows.map(r=>(r||[]).map(x=>String(x??'').trim()));
+  let hi=rows.findIndex(r=>r.some(x=>normH(x)==='名前'));let map;
+  if(hi>=0){map=rows[hi].map(h=>{const n=normH(h);const k=HEAD_ALIAS[n]||n;return CROP_COLS.findIndex(c=>normH(c[0])===k);});}
+  else{hi=-1;map=CROP_COLS.map((_,i)=>i);}
+  const ni=map.indexOf(0);if(ni<0)return {list:[],err:'「名前」の列が見つかりません'};
+  const list=[];let skipped=0;
+  for(const r of rows.slice(hi+1)){const name=r[map.indexOf(0)]||'';if(!name||/^(例|#|※)/.test(name)){if(r.some(Boolean))skipped++;continue;}
+    const ex=DB.plants.find(p=>p.name===name);
+    const p=ex?normalizePlant(JSON.parse(JSON.stringify(ex))):normalizePlant({id:uid(),name,cat:'野菜',seedM:[],plantM:[],harvM:[],rowSp:0,seedSp:0,sow:'点まき',perPoint:0,seedlingSp:0,color:PALETTE[(DB.plants.length+list.length)%PALETTE.length],memo:''});
+    map.forEach((ci,j)=>{if(ci>=0&&j<r.length)CROP_COLS[ci][2](p,r[j]);});
+    list.push({p,exists:!!ex,ok:hasSeed(p)||hasSeedling(p)});}
+  return {list,skipped};}
+function applyPlants(list){pushUndo();let add=0,upd=0;list.forEach(({p,exists})=>{const ex=DB.plants.find(x=>x.name===p.name);if(ex&&exists){Object.assign(ex,p,{id:ex.id});upd++;}else if(!ex){DB.plants.push(p);add++;}});changed();return {add,upd};}
+/* CSV */
+function parseCSV(text){text=text.replace(/^\uFEFF/,'');const tab=text.split('\n',1)[0].includes('\t')&&!text.split('\n',1)[0].includes(',');const sep=tab?'\t':',';
+  const rows=[];let row=[],f='',q=false;for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i++;}else q=false;}else f+=ch;continue;}
+    if(ch==='"'&&f===''){q=true;continue;}if(ch===sep){row.push(f);f='';continue;}if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(f);rows.push(row);row=[];f='';continue;}f+=ch;}
+  if(f!==''||row.length){row.push(f);rows.push(row);}return rows;}
+function toCSV(rows){return '\uFEFF'+rows.map(r=>r.map(v=>{const s=String(v??'');return /[",\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(',')).join('\r\n');}
+/* ZIP（無圧縮で書き出し、読み込みは圧縮も対応） */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){const enc=new TextEncoder();const parts=[],cen=[];let off=0;
+  const u16=v=>[v&255,(v>>8)&255],u32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255];
+  files.forEach(f=>{const name=enc.encode(f.name),data=typeof f.data==='string'?enc.encode(f.data):f.data,crc=crc32(data);
+    const lh=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+    parts.push(lh,name,data);cen.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),name);
+    off+=lh.length+name.length+data.length;});
+  const csize=cen.reduce((a,b)=>a+b.length,0);
+  const end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(csize),...u32(off),...u16(0)]);
+  return new Blob([...parts,...cen,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
+function unzipIndex(buf){const dv=new DataView(buf);let e=buf.byteLength-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error('zip');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const files={};const td=new TextDecoder();
+  for(let i=0;i<n;i++){const method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
+    const name=td.decode(new Uint8Array(buf,p+46,nl));const lnl=dv.getUint16(lo+26,true),lel=dv.getUint16(lo+28,true);files[name]={method,data:new Uint8Array(buf,lo+30+lnl+lel,csize)};p+=46+nl+el+cl;}
+  return files;}
+async function inflateEntry(f){if(f.method===0)return f.data;if(typeof DecompressionStream==='undefined')throw new Error('nodecomp');
+  const s=new Blob([f.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));return new Uint8Array(await new Response(s).arrayBuffer());}
+/* XLSX */
+const xesc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const colName=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+function makeXlsx(rows,sheetName){const heads=rows[0];
+  const body=rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>{const ref=colName(ci)+(ri+1);const txt=ri===0||TEXT_COLS.has(heads[ci]);
+    if(v===''||v==null)return ri===0?'':`<c r="${ref}" s="${txt?2:0}"/>`;
+    if(!txt&&typeof v==='number')return `<c r="${ref}"><v>${v}</v></c>`;
+    return `<c r="${ref}" t="inlineStr" s="${ri===0?1:2}"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;}).join('')}</row>`).join('');
+  const cols=heads.map((h,i)=>`<col min="${i+1}" max="${i+1}" width="${h==='名前'?16:h==='メモ'?30:TEXT_COLS.has(h)?12:11}" customWidth="1"/>`).join('');
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${body}</sheetData></worksheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF3D7A4A"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  return zipStore([
+    {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+    {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:'xl/workbook.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xesc(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+    {name:'xl/_rels/workbook.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:'xl/styles.xml',data:styles},{name:'xl/worksheets/sheet1.xml',data:sheet}]);}
+async function readXlsx(buf){const z=unzipIndex(buf);const td=new TextDecoder();const txt=async n=>{const f=z[n];return f?td.decode(await inflateEntry(f)):null;};
+  const X=s=>new DOMParser().parseFromString(s,'application/xml');const tags=(el,n)=>[...el.getElementsByTagNameNS('*',n)];
+  const ss=[];const sst=await txt('xl/sharedStrings.xml');if(sst)tags(X(sst),'si').forEach(si=>ss.push(tags(si,'t').map(t=>t.textContent).join('')));
+  const wb=X(await txt('xl/workbook.xml'));const rels=X(await txt('xl/_rels/workbook.xml.rels'));const rm={};tags(rels,'Relationship').forEach(r=>rm[r.getAttribute('Id')]=r.getAttribute('Target'));
+  const sheets=tags(wb,'sheet').map(s=>{const id=s.getAttribute('r:id')||s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');let t=rm[id]||'';t=t.replace(/^\//,'');if(!t.startsWith('xl/'))t='xl/'+t;return {name:s.getAttribute('name')||'',path:t};});
+  sheets.sort((a,b)=>(b.name.includes('作物')?1:0)-(a.name.includes('作物')?1:0));
+  const colIdx=ref=>{const m=/^([A-Z]+)/.exec(ref||'');let n=0;if(m)for(const ch of m[1])n=n*26+ch.charCodeAt(0)-64;return n-1;};
+  let first=null;
+  for(const sh of sheets){const x=await txt(sh.path);if(!x)continue;const rows=[];
+    tags(X(x),'row').forEach((r,ri)=>{const row=[];tags(r,'c').forEach((c,k)=>{const ci=c.getAttribute('r')?colIdx(c.getAttribute('r')):k;const t=c.getAttribute('t');const v=tags(c,'v')[0];
+      row[ci]=t==='s'?(ss[+(v&&v.textContent)]||''):t==='inlineStr'?tags(c,'t').map(e=>e.textContent).join(''):(v?v.textContent:'');});rows.push(Array.from(row,x=>x??''));});
+    if(!first)first=rows;if(rows.some(r=>r.some(x=>normH(x)==='名前')))return rows;}
+  return first||[];}
+async function readCropFile(file){const name=file.name.toLowerCase();const buf=await file.arrayBuffer();
+  if(name.endsWith('.xlsx')||name.endsWith('.xlsm')){return readXlsx(buf);}
+  if(name.endsWith('.xls'))throw new Error('xls');
+  let text=new TextDecoder('utf-8').decode(buf);if(text.includes('\uFFFD')){try{text=new TextDecoder('shift_jis').decode(buf);}catch(e){}}
+  return parseCSV(text);}
+function cropExportModal(){openModal('作物リストを書き出す',`<p class="muted">登録済みの${DB.plants.length}品目を書き出します。Excelで編集して「読み込む」で戻せます。ほかの端末に作物リストだけ渡すときにも使えます。</p>
+  <div class="grid2"><button class="btn pri" id="ceX">Excel（.xlsx）で書き出す</button><button class="btn" id="ceC">CSVで書き出す</button></div>
+  <p class="muted" style="margin-top:10px">月は「3〜5」「3〜5・9」のように書きます（Excelが日付に変えないよう文字列で保存しています）。</p>`);
+  const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  $('#ceX').onclick=()=>{deliverFiles([{name:`作物リスト_${ds}.xlsx`,blob:makeXlsx(plantsToRows(),'作物リスト')}]);toast('Excelファイルを作成しました');};
+  $('#ceC').onclick=()=>{deliverFiles([{name:`作物リスト_${ds}.csv`,blob:new Blob([toCSV(plantsToRows())],{type:'text/csv'})}]);toast('CSVファイルを作成しました');};}
+function cropImportModal(){openModal('作物リストを読み込む',`<p class="muted">Excel（.xlsx）かCSVの作物リストを読み込みます。1行目の見出し（名前・分類・播種月…）で列を判断するので、列の順番が違っても大丈夫です。同じ名前の作物は内容を更新し、新しい名前は追加します。</p>
+  <div class="fld"><label>ファイルを選ぶ（.xlsx / .csv）</label><input class="inp" type="file" id="ciF" accept=".xlsx,.xlsm,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+  <details><summary>表をコピーして貼り付ける</summary><textarea class="inp" id="ciT" placeholder="Excelで表を選んでコピーし、ここに貼り付け"></textarea><button class="btn full" id="ciTg" style="margin-top:6px">貼り付けた内容を確認</button></details>
+  <div id="ciPrev"></div>`,`<button class="btn" data-close>やめる</button><button class="btn pri" id="ciGo" disabled>取り込む</button>`);
+  let result=null;
+  const show=rows=>{const r=rowsToPlants(rows);if(r.err){$('#ciPrev').innerHTML=`<div class="box bad">${esc(r.err)}</div>`;return;}result=r;
+    const nNew=r.list.filter(x=>!x.exists).length,nUp=r.list.length-nNew,bad=r.list.filter(x=>!x.ok);
+    $('#ciPrev').innerHTML=`<h3>読み込み内容の確認</h3><div class="box">${rowInfo('追加',nNew+'品目')}${rowInfo('更新（同じ名前）',nUp+'品目')}${bad.length?`<div class="warn">時期か間隔が未入力のため配置に使えない：${esc(bad.map(x=>x.p.name).join('、'))}</div>`:''}</div>
+    <div class="scroll"><table><tr><th>名前</th><th></th><th>播種</th><th>苗</th><th>資材</th></tr>${r.list.slice(0,60).map(({p,exists})=>`<tr><td><span class="dot" style="display:inline-block;background:${p.color};vertical-align:-2px"></span> ${esc(p.name)}</td><td>${exists?'<span class="tag">更新</span>':'<span class="tag" style="background:var(--leafSoft)">追加</span>'}</td><td>${hasSeed(p)?fmtMonths(p.seedM)+' '+p.sow:''}</td><td>${hasSeedling(p)?fmtMonths(p.plantM)+' 株間'+p.seedlingSp:''}</td><td>${esc(matSummary(p))}</td></tr>`).join('')}</table></div>${r.list.length>60?`<p class="muted">ほか${r.list.length-60}品目</p>`:''}`;
+    $('#ciGo').disabled=!r.list.length;};
+  $('#ciF').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{show(await readCropFile(f));}catch(err){$('#ciPrev').innerHTML=`<div class="box bad">${err&&err.message==='xls'?'古い形式（.xls）は読めません。Excelで「.xlsx」として保存し直してください。':err&&err.message==='nodecomp'?'この端末のブラウザではExcelファイルを直接読めません。Excelで「CSV UTF-8」として保存するか、表をコピーして貼り付けてください。':'ファイルを読み込めませんでした。'}</div>`;}};
+  $('#ciTg').onclick=()=>show(parseCSV($('#ciT').value));
+  $('#ciGo').onclick=()=>{if(!result)return;const r=applyPlants(result.list);closeModal();toast(`作物リストを取り込みました：追加${r.add}・更新${r.upd}`);};}
 
 /* ============ 端末間の共有（ファイル受け渡し） ============ */
 function shareProject(p){const ids=new Set(p.plans.flatMap(pl=>pl.items.map(i=>i.p)));
