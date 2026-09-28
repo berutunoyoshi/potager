@@ -19,7 +19,6 @@
   --shadow:0 6px 24px rgba(31,58,44,.16);
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -205,39 +204,51 @@ fieldset:disabled .btn,fieldset:disabled .inp{opacity:.6}
 .mseg{display:grid!important;grid-template-columns:repeat(12,1fr);gap:4px}
 .mseg button{padding:0!important;min-height:36px;font-size:12px}
 .clist{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
-.clhead,.crow2{display:grid;grid-template-columns:40px minmax(160px,1fr) minmax(230px,320px) 36px;gap:10px;align-items:center}
-.clhead{position:sticky;top:0;background:var(--panel);z-index:2;padding:8px 6px;border-bottom:2px solid var(--line);font-size:12px;color:var(--sub)}
-.crow2{padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+.clhead,.crow2{display:grid;grid-template-columns:40px minmax(180px,1fr) minmax(330px,460px) 36px;grid-template-areas:"star cn strip ed";gap:12px;align-items:center}
+.clhead{position:sticky;top:0;background:var(--panel);z-index:2;padding:8px 8px;border-bottom:2px solid var(--line);font-size:12px;color:var(--sub)}
+.clhead>:nth-child(1){grid-area:star}.clhead>:nth-child(2){grid-area:cn}.clhead>.mhead{grid-area:strip}.clhead>:nth-child(4){grid-area:ed}
+.crow2{padding:12px 8px;border-bottom:1px solid var(--line);cursor:pointer}
 .crow2:last-child{border-bottom:0}
 .crow2:active{background:var(--chip)}
+.crow2>.star{grid-area:star}.crow2>.cn{grid-area:cn;min-width:0}.crow2>.stripw{grid-area:strip;min-width:0}.crow2>.ed{grid-area:ed;display:grid;place-items:center;width:36px;height:36px}
 .cn1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cn1 b{font-size:16px}
-.cd{font-size:12.5px;color:var(--sub);margin-top:2px}
+.cd{font-size:13px;color:var(--sub);margin-top:3px;line-height:1.55}
 .tag.comp{background:#fdf1c7;color:#6b4a00}
 .tag.use{background:var(--leafSoft)}
-.strip{display:grid;grid-template-columns:16px repeat(12,1fr);grid-auto-rows:10px;gap:2px 2px;align-self:center}
-.strip b{font-weight:600;color:var(--sub);font-size:9px;line-height:10px}
-.strip em{display:none;font-style:normal;font-size:9px;line-height:10px;text-align:center;color:var(--sub)}
+.strip{display:grid;grid-template-columns:40px repeat(12,minmax(0,1fr));grid-auto-rows:18px;gap:3px 2px}
+.strip b{font-weight:600;color:var(--ink);font-size:12px;line-height:18px;white-space:nowrap}
+.strip .mrow{display:none}
+.strip em{font-style:normal;font-size:11px;line-height:18px;text-align:center;color:var(--sub)}
 .strip em.cur{color:var(--pen);font-weight:700}
-.strip i{display:block;border-radius:2px;background:var(--chip)}
+.strip i{display:block;border-radius:3px;background:var(--chip)}
 .strip i.s,.lg.s{background:#e7b93c}.strip i.p,.lg.p{background:#58a55c}.strip i.h,.lg.h{background:#e07b4f}
-.strip i.cur{box-shadow:0 0 0 1.5px var(--pen)}
-.lg{display:inline-block;width:16px;height:10px;border-radius:2px}.lg.cur{box-shadow:0 0 0 1.5px var(--pen);background:transparent}
-.mhead{display:grid;grid-template-columns:16px repeat(12,1fr);gap:2px;text-align:center;font-size:11px}
+.strip i.cur{box-shadow:0 0 0 2px var(--pen)}
+.lg{display:inline-block;width:18px;height:12px;border-radius:3px}.lg.cur{box-shadow:0 0 0 2px var(--pen);background:transparent}
+.mhead{display:grid;grid-template-columns:40px repeat(12,minmax(0,1fr));gap:2px;text-align:center;font-size:12px}
+.mhead .ml{text-align:left}
 .mhead .cur{color:var(--pen);font-weight:700}
-.star{border:0;background:none;font-size:22px;color:var(--sub);width:40px;height:44px;touch-action:manipulation;opacity:.5}
+.star{border:0;background:none;font-size:22px;color:var(--sub);width:40px;height:44px;touch-action:manipulation;opacity:.5;padding:0}
 .star.on{color:#e6b422;opacity:1}
-.clist.cal .crow2{padding:6px}
-.clist.cal .strip{grid-auto-rows:14px}
-.clist.cal .clhead,.clist.cal .crow2{grid-template-columns:40px minmax(130px,200px) 1fr 36px}
-@media (max-width:640px){
+.clist.cal .crow2{padding:8px}
+.clist.cal .clhead,.clist.cal .crow2{grid-template-columns:40px minmax(130px,220px) 1fr 36px}
+.clist.cal .strip{grid-auto-rows:20px}
+@media (max-width:700px){
   .csearch{grid-template-columns:1fr 1fr}.csearch #cq{grid-column:1/3}
-  .clhead,.crow2,.clist.cal .clhead,.clist.cal .crow2{grid-template-columns:34px 1fr 30px}
-  .clhead .mhead{display:none}
-  .crow2 .strip{grid-column:2/3;grid-row:2}
-  .crow2 .strip em{display:block}
-  .crow2 .ed{grid-row:1}
+  .clhead{display:none}
+  .crow2,.clist.cal .crow2{grid-template-columns:36px minmax(0,1fr) 34px;grid-template-areas:"star cn ed" "strip strip strip";gap:8px 8px;padding:12px 10px}
+  .strip{grid-template-columns:38px repeat(12,minmax(0,1fr));grid-auto-rows:17px}
+  .strip .mrow{display:contents}
+  .pgi{padding:12px 10px 60px}
+  .mseg{grid-template-columns:repeat(6,1fr)}
 }
+#scr-home{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.pgb{padding-bottom:env(safe-area-inset-bottom,0px)}
+#pbody{padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+#chip{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+html{background:var(--panel)}
+@supports (height:100dvh){html,body{height:100dvh}}
+html[data-screen="home"],html[data-screen="home"] body{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px),linear-gradient(var(--gridMajor) 1px,transparent 1px),linear-gradient(90deg,var(--gridMajor) 1px,transparent 1px);background-size:24px 24px,24px 24px,120px 120px,120px 120px}
 </style>
 </head>
 <body>
@@ -705,7 +716,8 @@ function dimLine(c,v,a,b,text,col){
 }
 function drawMeasure(c,v,m){const L=Math.hypot(m.b[0]-m.a[0],m.b[1]-m.a[1]);if(L<0.5)return;dimLine(c,v,m.a,m.b,`${fmt(L)}cm`,colors.danger);
   const s=v.s;[m.a,m.b].forEach(q=>{c.beginPath();c.arc(q[0]*s+v.ox,q[1]*s+v.oy,4,0,Math.PI*2);c.fillStyle=colors.danger;c.fill();});}
-function drawScale(c,W,H,s,opt){
+let SAFE_B=0;try{const d=document.createElement('div');d.style.cssText='position:fixed;bottom:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';document.documentElement.appendChild(d);SAFE_B=parseFloat(getComputedStyle(d).paddingBottom)||0;d.remove();}catch(e){}
+function drawScale(c,W,H,s,opt){if(!opt.export)H-=SAFE_B;
   const opts=[5,10,20,50,100,200,500,1000];let L=opts.find(x=>x*s>=70)||1000;
   const x=14,y=H-(opt.export?24:18);const w=L*s;
   c.fillStyle=colors.panel;c.globalAlpha=.92;roundRect(c,x-8,y-34,Math.max(w,150)+16,44,8);c.fill();c.globalAlpha=1;
@@ -996,7 +1008,7 @@ function openNorth(){const n=northOf();
   const set=d=>{d=((Math.round(+d)%360)+360)%360;if(!cur)return;pushUndo();cur.north=d;closeModal();changed();toast(`方位を${d}°にしました`);};
   $$('#mb [data-nd]').forEach(b=>b.onclick=()=>set(+b.dataset.nd));$('#nOk').onclick=()=>set($('#nDeg').value);}
 
-function showScreen(id){screen=id;if(id!=='work')delete document.body.dataset.mode;$$('.screen').forEach(s=>s.classList.toggle('show',s.id==='scr-'+id));}
+function showScreen(id){screen=id;document.documentElement.dataset.screen=id;if(id!=='work')delete document.body.dataset.mode;$$('.screen').forEach(s=>s.classList.toggle('show',s.id==='scr-'+id));}
 const fmtDate=t=>{const d=new Date(t);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;};
 const monthOpts=m=>Array.from({length:12},(_,i)=>`<option value="${i+1}" ${m===i+1?'selected':''}>${i+1}月</option>`).join('');
 
@@ -1290,35 +1302,36 @@ let cropsBack=showHome;
 const gUrl=(q,img)=>`https://www.google.com/search?q=${encodeURIComponent(q)}${img?'&udm=2':''}`;
 const gLinks=name=>`<div class="row glinks" style="gap:6px;margin-top:6px"><a class="btn sm" href="${gUrl(name)}" target="_blank" rel="noopener" data-g>🔍 Google</a><a class="btn sm" href="${gUrl(name,1)}" target="_blank" rel="noopener" data-g>🖼 画像</a><a class="btn sm" href="${gUrl(name+' 育て方')}" target="_blank" rel="noopener" data-g>📖 育て方</a></div>`;
 document.addEventListener('click',e=>{const a=e.target.closest('a[data-g]');if(!a)return;e.stopPropagation();if(navigator.onLine===false){e.preventDefault();toast('オフラインのため検索できません。通信できる場所でお試しください');}},true);
-const cfDefault=()=>({cats:[],comp:false,fav:false,meth:[],crop:[],seed:[],plant:[],harv:[],mat:[],eff:[],use:[],logic:'and'});
+const cfDefault=()=>({cats:[],comp:false,fav:false,meth:[],sow:[],crop:[],seed:[],plant:[],harv:[],mat:[],eff:[],use:[],logic:'and'});
 ui.cf=ui.cf||cfDefault();ui.csort=ui.csort||'cat';ui.cview=ui.cview||'list';
 const MAT_KEYS=['支柱','ネット','不織布','トンネル','マルチ','稲藁','籾殻'];
 function matKeys(p){const M=p.mat,P=p.prot,k=[];if(M.pole.on)k.push('支柱');if(M.net.on)k.push('ネット');if(P.fleece.on)k.push('不織布');if(P.tunnel.on)k.push('トンネル');if(P.mulch.on)k.push('マルチ');if(P.straw.on)k.push('稲藁');if(P.husk.on)k.push('籾殻');return k;}
 function cropUsage(){const m=new Map();DB.projects.forEach(pr=>pr.plans.forEach(pl=>pl.items.forEach(i=>m.set(i.p,(m.get(i.p)||0)+1))));return m;}
-function cfCount(f){return ['cats','meth','crop','seed','plant','harv','mat','eff','use'].filter(k=>f[k].length).length+(f.comp?1:0)+(f.fav?1:0);}
+function cfCount(f){return ['cats','meth','sow','crop','seed','plant','harv','mat','eff'].filter(k=>(f[k]||[]).length).length+(f.comp?1:0)+(f.fav?1:0);}
 function cropMatches(p,f,q,usage){
   if(q&&!(p.name.includes(q)||(p.memo||'').includes(q)||p.effects.some(e=>e.includes(q))||p.good.some(e=>e.includes(q))))return false;
   const any=(arr,sel)=>sel.some(x=>arr.includes(x));const c=[];
+  const meth=(f.meth||[]).map(m=>m==='苗'?'植付':m).filter(m=>m==='播種'||m==='植付');const sow=[...(f.sow||[]),...(f.meth||[]).filter(m=>SOWS.includes(m))];
   if(f.cats.length)c.push(f.cats.includes(p.cat));
   if(f.comp)c.push(p.companion);
   if(f.fav)c.push(p.fav);
-  if(f.meth.length)c.push(f.meth.some(m=>m==='播種'?hasSeed(p):m==='苗'?hasSeedling(p):hasSeed(p)&&p.sow===m));
+  if(meth.length)c.push(meth.some(m=>m==='播種'?hasSeed(p):hasSeedling(p)));
+  if(sow.length)c.push(hasSeed(p)&&sow.includes(p.sow));
   if(f.crop.length)c.push((hasSeed(p)&&any(p.seedM,f.crop))||(hasSeedling(p)&&any(p.plantM,f.crop)));
   if(f.seed.length)c.push(hasSeed(p)&&any(p.seedM,f.seed));
   if(f.plant.length)c.push(hasSeedling(p)&&any(p.plantM,f.plant));
   if(f.harv.length)c.push(any(p.harvM,f.harv));
   if(f.mat.length)c.push(any(matKeys(p),f.mat));
   if(f.eff.length)c.push(any(p.effects,f.eff));
-  if(f.use.length){const n=usage.get(p.id)||0;c.push(f.use.some(u=>u==='used'?n>0:n===0));}
   if(!c.length)return true;return f.logic==='or'?c.some(Boolean):c.every(Boolean);}
 const SORTS=[['cat','分類順'],['name','名前順'],['soon','作付けが近い順'],['seed','種まきが早い順'],['plant','植え付けが早い順'],['harv','収穫が早い順'],['used','よく使う順']];
 function cropSort(list,usage){const m=S.settings.month;const first=a=>a.length?Math.min(...a):99;const fromNow=a=>a.length?Math.min(...a.map(x=>(x-m+12)%12)):99;
   const key={cat:p=>CATS.indexOf(p.cat)*1000,name:()=>0,seed:p=>hasSeed(p)?first(p.seedM):99,plant:p=>hasSeedling(p)?first(p.plantM):99,harv:p=>first(p.harvM),
     soon:p=>Math.min(hasSeed(p)?fromNow(p.seedM):99,hasSeedling(p)?fromNow(p.plantM):99),used:p=>-(usage.get(p.id)||0)}[ui.csort]||(()=>0);
   return list.sort((a,b)=>(b.fav-a.fav)||(key(a)-key(b))||a.name.localeCompare(b.name,'ja'));}
-function monthStrip(p,labels){const m=S.settings.month;const lane=(arr,cls,l)=>`<b>${l}</b>`+Array.from({length:12},(_,i)=>`<i class="${arr.includes(i+1)?cls:''} ${i+1===m?'cur':''}" title="${i+1}月"></i>`).join('');
-  return `<div class="strip" aria-label="${esc(p.name)}の栽培時期">${labels?`<b></b>`+Array.from({length:12},(_,i)=>`<em class="${i+1===m?'cur':''}">${i+1}</em>`).join(''):''}${lane(hasSeed(p)?p.seedM:[],'s','播')}${lane(hasSeedling(p)?p.plantM:[],'p','植')}${lane(p.harvM,'h','収')}</div>`;}
-const monthHead=()=>{const m=S.settings.month;return `<div class="mhead"><span></span>${Array.from({length:12},(_,i)=>`<span class="${i+1===m?'cur':''}">${i+1}</span>`).join('')}</div>`;};
+function monthStrip(p){const m=S.settings.month;const lane=(arr,cls,l)=>`<b>${l}</b>`+Array.from({length:12},(_,i)=>`<i class="${arr.includes(i+1)?cls:''} ${i+1===m?'cur':''}" title="${l} ${i+1}月"></i>`).join('');
+  return `<div class="strip" aria-label="${esc(p.name)}の栽培時期"><span class="mrow"><b></b>${Array.from({length:12},(_,i)=>`<em class="${i+1===m?'cur':''}">${i+1}</em>`).join('')}</span>${lane(hasSeed(p)?p.seedM:[],'s','播種')}${lane(hasSeedling(p)?p.plantM:[],'p','植付')}${lane(p.harvM,'h','収穫')}</div>`;}
+const monthHead=()=>{const m=S.settings.month;return `<div class="mhead"><span class="ml">月</span>${Array.from({length:12},(_,i)=>`<span class="${i+1===m?'cur':''}">${i+1}</span>`).join('')}</div>`;};
 function showCrops(back){if(back)cropsBack=back;
   showPage('作物一覧',`<div class="row"><button class="btn pri" data-c="add">＋ 作物を追加</button><button class="btn" data-c="presets">候補からまとめて追加</button><button class="btn" data-c="imp">📥 読み込む</button><button class="btn" data-c="exp">📤 書き出す</button><button class="btn" data-c="table">まとめて削除</button></div>
   <div class="csearch"><input class="inp" id="cq" placeholder="名前・メモ・効果・相性の良い作物で検索" value="${esc(ui.cq)}">
@@ -1339,49 +1352,47 @@ function showCrops(back){if(back)cropsBack=back;
     const sd=e.target.closest('[data-svdel]');if(sd){S.settings.savedFilters=(S.settings.savedFilters||[]).filter(x=>x.id!==sd.dataset.svdel);save();renderCropFilters();return;}
     const v=e.target.closest('[data-view]');if(v){ui.cview=v.dataset.view;$$('[data-view]').forEach(x=>x.classList.toggle('on',x===v));renderCropList();return;}
     const q=e.target.closest('[data-q]');if(q){const k=q.dataset.q,m=S.settings.month;
-      if(k==='all'){ui.cf={...cfDefault(),logic:f.logic};}else if(k==='comp')f.comp=!f.comp;else if(k==='fav')f.fav=!f.fav;else if(k==='now')f.crop=f.crop.length===1&&f.crop[0]===m?[]:[m];
-      else f.cats=f.cats.includes(k)?f.cats.filter(x=>x!==k):[...f.cats,k];renderCropFilters();renderCropList();return;}
+      if(k==='all'){ui.cf={...cfDefault(),logic:f.logic};}else if(k==='comp')f.comp=!f.comp;else if(k==='fav')f.fav=!f.fav;else f.cats=f.cats.includes(k)?f.cats.filter(x=>x!==k):[...f.cats,k];renderCropFilters();renderCropList();return;}
     const fb=e.target.closest('[data-f]');if(fb){const g=fb.dataset.f,val=/^\d+$/.test(fb.dataset.v)?+fb.dataset.v:fb.dataset.v;
-      if(g==='logic')f.logic=val;else if(g==='comp'||g==='fav')f[g]=!f[g];else f[g]=f[g].includes(val)?f[g].filter(x=>x!==val):[...f[g],val];renderCropFilters();renderCropList();return;}
+      if(g==='logic')f.logic=val;else if(g==='comp'||g==='fav')f[g]=!f[g];else{f[g]=f[g]||[];f[g]=f[g].includes(val)?f[g].filter(x=>x!==val):[...f[g],val];}renderCropFilters();renderCropList();return;}
     const st=e.target.closest('[data-fav]');if(st){const p=plantById(st.dataset.fav);if(p){p.fav=!p.fav;save();renderCropList();toast(p.fav?`${p.name}をお気に入りにしました`:`${p.name}をお気に入りから外しました`);}return;}
     const r=e.target.closest('[data-crop]');if(r)plantEditor(plantById(r.dataset.crop));};}
 function renderCropFilters(){const f=ui.cf,m=S.settings.month,n=cfCount(f);const on=(b)=>b?'on':'';
-  const qs=[['all','すべて',!n],...CATS.map(c=>[c,c,f.cats.includes(c)]),['comp','🌼 コンパニオン',f.comp],['fav','★ お気に入り',f.fav],['now',`${m}月に作付け`,f.crop.length===1&&f.crop[0]===m]];
+  const qs=[['all','すべて',!n],...CATS.map(c=>[c,c,f.cats.includes(c)]),['comp','コンパニオンプランツ',f.comp],['fav','★ お気に入り',f.fav]];
   const saved=S.settings.savedFilters||[];
   $('#cquick').innerHTML=`<div class="seg">${qs.map(([k,l,a])=>`<button data-q="${k}" class="${on(a)}">${l}</button>`).join('')}${saved.map(s=>`<button data-sv="${s.id}" class="saved">🔖 ${esc(s.name)}</button>`).join('')}</div>`;
   const chip=(g,v,l,a)=>`<button data-f="${g}" data-v="${v}" class="${on(a)}">${l}</button>`;
   const months=g=>`<div class="seg mseg">${Array.from({length:12},(_,i)=>chip(g,i+1,`${i+1}月`,f[g].includes(i+1))).join('')}</div>`;
   $('#cfilter').innerHTML=`<details class="fbox" id="fbox" ${ui.fopen?'open':''}><summary>🔎 詳しい条件で絞り込む ${n?`<span class="tag">${n}つの条件・${f.logic==='and'?'すべて':'どれか'}</span>`:''}</summary>
-  <div class="fl"><label>分類・印</label><div class="seg">${CATS.map(c=>chip('cats',c,c,f.cats.includes(c))).join('')}${chip('comp',1,'🌼 コンパニオン',f.comp)}${chip('fav',1,'★ お気に入り',f.fav)}</div></div>
-  <div class="fl"><label>育て方</label><div class="seg">${[['播種','種から'],['苗','苗から'],['点まき','点まき'],['すじまき','すじまき'],['ばらまき','ばらまき']].map(([v,l])=>chip('meth',v,l,f.meth.includes(v))).join('')}</div></div>
-  <div class="fl"><label>作付けの時期（種まき・植え付けのどちらか）</label>${months('crop')}</div>
-  <div class="fl"><label>種まきの時期</label>${months('seed')}</div>
-  <div class="fl"><label>植え付けの時期</label>${months('plant')}</div>
+  <div class="fl"><label>分類・印</label><div class="seg">${CATS.map(c=>chip('cats',c,c,f.cats.includes(c))).join('')}${chip('comp',1,'コンパニオンプランツ',f.comp)}${chip('fav',1,'★ お気に入り',f.fav)}</div></div>
+  <div class="fl"><label>作付け方法</label><div class="seg">${['播種','植付'].map(v=>chip('meth',v,v,f.meth.includes(v))).join('')}</div></div>
+  <div class="fl"><label>播種方法</label><div class="seg">${SOWS.map(v=>chip('sow',v,v,(f.sow||[]).includes(v))).join('')}</div></div>
+  <div class="fl"><label>作付けの時期（播種・植付のどちらか）</label>${months('crop')}</div>
+  <div class="fl"><label>播種の時期</label>${months('seed')}</div>
+  <div class="fl"><label>植付の時期</label>${months('plant')}</div>
   <div class="fl"><label>収穫の時期</label>${months('harv')}</div>
   <div class="fl"><label>必要な資材</label><div class="seg">${MAT_KEYS.map(k=>chip('mat',k,k,f.mat.includes(k))).join('')}</div></div>
-  <div class="fl"><label>コンパニオンの効果</label><div class="seg">${EFFECTS.map(k=>chip('eff',k,k,f.eff.includes(k))).join('')}</div></div>
-  <div class="fl"><label>使用状況</label><div class="seg">${chip('use','used','計画で使用中',f.use.includes('used'))}${chip('use','unused','未使用',f.use.includes('unused'))}</div></div>
+  <div class="fl"><label>コンパニオンプランツの効果</label><div class="seg">${EFFECTS.map(k=>chip('eff',k,k,f.eff.includes(k))).join('')}</div></div>
   <div class="fl"><label>条件の組み合わせ</label><div class="seg">${chip('logic','and','すべての条件に当てはまる（かつ）',f.logic==='and')}${chip('logic','or','どれかに当てはまる（または）',f.logic==='or')}</div>
-    <p class="muted">同じ項目の中で複数選んだときは、そのどれかに当てはまればよい扱いです（例：種まき 3月・4月 → 3月か4月にまけるもの）。</p></div>
+    <p class="muted">同じ項目の中で複数選んだときは、そのどれかに当てはまればよい扱いです（例：播種 3月・4月 → 3月か4月に播種できるもの）。</p></div>
   <div class="row"><button class="btn" data-c="fclear">条件をクリア</button><button class="btn" data-c="fsave">この条件を保存</button></div>
   ${saved.length?`<div class="fl"><label>保存した条件</label><div class="seg">${saved.map(s=>`<button data-svdel="${s.id}" class="saved">🔖 ${esc(s.name)} ✕</button>`).join('')}</div><p class="muted">✕を押すと削除します。上の一覧のボタンで呼び出せます。</p></div>`:''}</details>`;}
 function renderCropList(){const el=$('#clist');if(!el)return;const usage=cropUsage();const q=ui.cq.trim();
   const list=cropSort(DB.plants.filter(p=>cropMatches(p,ui.cf,q,usage)),usage);const cal=ui.cview==='cal';
-  const head=`<div class="clhead"><span></span><span>${list.length}品目 / 全${DB.plants.length}品目</span>${monthHead()}<span></span></div>`;
-  const legend=`<div class="legend" style="margin:6px 0"><span><i class="lg s"></i>種まき</span><span><i class="lg p"></i>植え付け</span><span><i class="lg h"></i>収穫</span><span><i class="lg cur"></i>${S.settings.month}月（今の作付け月）</span></div>`;
-  el.innerHTML=legend+`<div class="clist ${cal?'cal':''}">${head}`+(list.length?list.map(p=>{const ms=matSummary(p),u=usage.get(p.id)||0;
+  const head=`<div class="clhead"><span></span><span>作物</span>${monthHead()}<span></span></div>`;
+  const legend=`<div class="legend" style="margin:8px 0;font-size:13px"><span><i class="lg s"></i>播種</span><span><i class="lg p"></i>植付</span><span><i class="lg h"></i>収穫</span><span><i class="lg cur"></i>${S.settings.month}月（今の作付け月）</span><span style="margin-left:auto">${list.length}品目 / 全${DB.plants.length}品目</span></div>`;
+  el.innerHTML=legend+`<div class="clist ${cal?'cal':''}">${head}`+(list.length?list.map(p=>{const u=usage.get(p.id)||0;
     return `<div class="crow2" data-crop="${p.id}"><button class="star ${p.fav?'on':''}" data-fav="${p.id}" aria-label="お気に入り">${p.fav?'★':'☆'}</button>
-    <div class="cn"><div class="cn1"><span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="tag">${esc(p.cat)}</span>${p.companion?'<span class="tag comp">🌼 コンパニオン</span>':''}${u?`<span class="tag use">使用中 ${u}</span>`:''}</div>
-    ${cal?'':`<div class="cd">${hasSeed(p)?`<div>━ 種まき ${fmtMonths(p.seedM)}・${p.sow==='ばらまき'?`ばらまき ${p.perPoint}粒/㎡`:`条間${p.rowSp}／株間${p.seedSp}cm・${p.sow}`}</div>`:''}${hasSeedling(p)?`<div>● 苗 ${fmtMonths(p.plantM)}・株間${p.seedlingSp}cm</div>`:''}
-      ${p.harvM.length?`<div>収穫 ${fmtMonths(p.harvM)}</div>`:''}${ms?`<div>資材 ${esc(ms)}</div>`:''}${p.companion&&(p.effects.length||p.good.length)?`<div class="good">🌼 ${esc(p.effects.join('・'))}${p.good.length?`　相性◎ ${esc(p.good.join('・'))}`:''}</div>`:''}${p.bad.length?`<div class="bad">相性× ${esc(p.bad.join('・'))}</div>`:''}
+    <div class="cn"><div class="cn1"><span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="tag">${esc(p.cat)}</span>${p.companion?'<span class="tag comp">コンパニオンプランツ</span>':''}${u?`<span class="tag use">使用中 ${u}</span>`:''}</div>
+    ${cal?'':`<div class="cd">${hasSeed(p)?`<div>播種 ${fmtMonths(p.seedM)}・${p.sow==='ばらまき'?`ばらまき ${p.perPoint}粒/㎡`:`${p.sow}・条間${p.rowSp}／株間${p.seedSp}cm`}</div>`:''}${hasSeedling(p)?`<div>植付 ${fmtMonths(p.plantM)}・株間${p.seedlingSp}cm</div>`:''}
+      ${p.harvM.length?`<div>収穫 ${fmtMonths(p.harvM)}</div>`:''}${p.companion&&p.effects.length?`<div class="good">効果：${esc(p.effects.join('・'))}</div>`:''}${p.good.length?`<div class="good">相性が良い：${esc(p.good.join('・'))}</div>`:''}${p.bad.length?`<div class="bad">相性が悪い：${esc(p.bad.join('・'))}</div>`:''}
       ${gLinks(p.name)}</div>`}</div>
-    ${monthStrip(p,true)}<span class="ed" style="display:grid;place-items:center">✎</span></div>`;}).join('')+'</div>':'</div><div class="box muted">条件に当てはまる作物がありません。条件を減らすか「条件をクリア」を押してください。</div>');}
-
+    <div class="stripw">${monthStrip(p)}</div><span class="ed">✎</span></div>`;}).join('')+'</div>':'</div><div class="box muted">条件に当てはまる作物がありません。条件を減らすか「条件をクリア」を押してください。</div>');}
 function plantList(){const m=S.settings.month,all=S.settings.showAllSeasons,q=ui.q.trim();let n=0;
   const html=CATS.concat(['その他']).map(cat=>{const ps=S.plants.filter(p=>(CATS.includes(p.cat)?p.cat:'その他')===cat&&(!q||p.name.includes(q))).sort((a,b)=>(b.fav-a.fav)||a.name.localeCompare(b.name,'ja'));
     const rows=ps.map(p=>{const cs=hasSeed(p),cp=hasSeedling(p),is=cs&&p.seedM.includes(m),ip=cp&&p.plantM.includes(m);if(!all&&!is&&!ip)return '';n++;
       const act=active.pid===p.id;
-      return `<div class="pl ${act?'act':''}"><span class="dot" style="background:${p.color}"></span><div class="nm"><b>${p.fav?'<span style="color:#e6b422">★</span>':''}${esc(p.name)}${p.companion?' <span class="tag comp">🌼</span>':''}</b><span>${cs?`播種 ${fmtMonths(p.seedM)}`:''}${cs&&cp?'／':''}${cp?`苗 ${fmtMonths(p.plantM)}`:''}${p.harvM.length?`／収穫 ${fmtMonths(p.harvM)}`:''}</span></div>
+      return `<div class="pl ${act?'act':''}"><span class="dot" style="background:${p.color}"></span><div class="nm"><b>${p.fav?'<span style="color:#e6b422">★</span>':''}${esc(p.name)}${p.companion?' <span class="tag comp">コンパニオンプランツ</span>':''}</b><span>${cs?`播種 ${fmtMonths(p.seedM)}`:''}${cs&&cp?'／':''}${cp?`苗 ${fmtMonths(p.plantM)}`:''}${p.harvM.length?`／収穫 ${fmtMonths(p.harvM)}`:''}</span></div>
       ${cp&&(ip||all)?`<button class="pb ${act&&active.m==='s'?'on':''} ${ip?'':'off'}" data-act="pick" data-id="${p.id}" data-m="s" title="株間${p.seedlingSp}cm">苗${ip?'':'※'}</button>`:''}
       ${cs&&(is||all)?`<button class="pb ${act&&active.m==='r'?'on':''} ${is?'':'off'}" data-act="pick" data-id="${p.id}" data-m="r" title="条間${p.rowSp}cm 株間${p.seedSp}cm">播種${is?'':'※'}</button>`:''}
       <button class="ed" data-act="editPlant" data-id="${p.id}" aria-label="編集">✎</button></div>`;}).join('');
@@ -1461,7 +1472,7 @@ function plantEditor(p,asCopy){const isNew=!p||!!asCopy;p=p?JSON.parse(JSON.stri
   <div class="fld"><label>株間 cm（円の直径）</label><input class="inp" id="fPS" type="number" inputmode="decimal" value="${p.seedlingSp}"></div>
   <h3>収穫</h3><div class="fld"><label>収穫の時期</label>${monthsPicker('harvM',p.harvM)}</div>
   <h3>コンパニオンプランツ・相性</h3>
-  <label class="sw"><input type="checkbox" id="fCp" data-tg="fCp" ${p.companion?'checked':''}><b>🌼 コンパニオンプランツとして使う</b></label>
+  <label class="sw"><input type="checkbox" id="fCp" data-tg="fCp" ${p.companion?'checked':''}><b>コンパニオンプランツとして使う</b></label>
   <div class="box" data-sub="fCp" style="${p.companion?'':'display:none'}"><div class="fld"><label>効果（複数選択可）</label><div class="seg" id="fEf">${EFFECTS.map(e=>`<button type="button" data-ef="${esc(e)}" class="${p.effects.includes(e)?'on':''}">${e}</button>`).join('')}</div></div>
     <p class="muted" style="margin:0">野菜・ハーブ・花のどの分類でも、コンパニオンプランツとして印を付けられます。</p></div>
   <div class="grid2"><div class="fld"><label>相性の良い作物（「・」区切り）</label><input class="inp" id="fGd" value="${esc(p.good.join('・'))}" placeholder="例：トマト・ナス"></div>
